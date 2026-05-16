@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     borderRadius: 24, borderWidth: 1,
     borderColor: Colors.border, backgroundColor: Colors.bgCard,
   },
-  chipActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipActive: { backgroundColor: "#111", borderColor: "#111" },
   chipText: { fontSize: 14, color: Colors.textSecondary, fontFamily: "Inter_500Medium" },
   chipTextActive: { color: "#fff" },
   photoGrid: {

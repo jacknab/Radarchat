@@ -353,11 +353,14 @@ export default function UserDetailScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Distance</Text>
-            <Text style={styles.statValue}>
-              {user.isMe
-                ? "Your location"
-                : formatDistance(user.distanceMiles) + " away"}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Ionicons name="navigate-outline" size={13} color={Colors.textMuted} />
+              <Text style={styles.statValue}>
+                {user.isMe
+                  ? "Your location"
+                  : formatDistance(user.distanceMiles) + " away"}
+              </Text>
+            </View>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
