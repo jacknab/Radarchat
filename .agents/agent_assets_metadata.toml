@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "n5XCJveczvU2JxuK3hasJ"
+uri = "file://security-audit.md"
+type = "text"
+title = "Radarchat Security Audit & Hardening Report"
