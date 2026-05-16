@@ -390,10 +390,27 @@ export default function SetupScreen() {
               ))}
             </View>
 
+          </View>
+        )}
+
+        {step === 3 && (
+          <View>
+            <View style={[styles.chipRow, { marginBottom: 28 }]}>
+              {ENDOWMENTS.map((e) => (
+                <Pressable
+                  key={e}
+                  style={[styles.chip, endowment === e && styles.chipActive]}
+                  onPress={() => { Haptics.selectionAsync(); setEndowment(e); }}
+                >
+                  <Text style={[styles.chipText, endowment === e && styles.chipTextActive]}>{e}</Text>
+                </Pressable>
+              ))}
+            </View>
+
             <View style={styles.cockSizeRow}>
               <View>
                 <Text style={styles.chipLabel}>
-                  Cock Size{" "}
+                  Size{" "}
                   <Text style={styles.optionalLabel}>(optional)</Text>
                 </Text>
                 <View style={styles.pickerRow}>
@@ -421,20 +438,6 @@ export default function SetupScreen() {
                 <Text style={styles.cockSizeDisplayLabel}>inches</Text>
               </View>
             </View>
-          </View>
-        )}
-
-        {step === 3 && (
-          <View style={styles.chipRow}>
-            {ENDOWMENTS.map((e) => (
-              <Pressable
-                key={e}
-                style={[styles.chip, endowment === e && styles.chipActive]}
-                onPress={() => { Haptics.selectionAsync(); setEndowment(e); }}
-              >
-                <Text style={[styles.chipText, endowment === e && styles.chipTextActive]}>{e}</Text>
-              </Pressable>
-            ))}
           </View>
         )}
 
