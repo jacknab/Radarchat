@@ -491,11 +491,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Polling effect for nearby
+  // Polling effect for nearby — use profile location if available, otherwise fall back to
+  // default coordinates so seed profiles are visible before setup is complete.
+  const DEFAULT_LAT = 37.7749;
+  const DEFAULT_LON = -122.4194;
   useEffect(() => {
-    if (!myProfile?.latitude || !myProfile?.longitude) return;
-    refreshNearbyUsers();
-    const id = setInterval(refreshNearbyUsers, POLL_NEARBY_MS);
+    const lat = myProfile?.latitude ?? DEFAULT_LAT;
+    const lon = myProfile?.longitude ?? DEFAULT_LON;
+    refreshNearbyUsers(lat, lon);
+    const id = setInterval(() => refreshNearbyUsers(
+      profileRef.current?.latitude ?? DEFAULT_LAT,
+      profileRef.current?.longitude ?? DEFAULT_LON,
+    ), POLL_NEARBY_MS);
     return () => clearInterval(id);
   }, [myProfile?.latitude, myProfile?.longitude, refreshNearbyUsers]);
 
