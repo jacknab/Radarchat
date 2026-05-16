@@ -526,7 +526,13 @@ export default function ProfileScreen() {
       {myProfile?.into ? (
         <View style={styles.bioCard}>
           <Text style={styles.bioCardLabel}>Into</Text>
-          <Text style={styles.bioCardText}>{myProfile.into}</Text>
+          <View style={styles.tagRow}>
+            {myProfile.into.split(",").map((tag) => (
+              <View key={tag.trim()} style={styles.tag}>
+                <Text style={styles.tagText}>{tag.trim()}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       ) : (
         <Pressable style={styles.bioEmpty} onPress={() => router.push("/setup")}>
@@ -639,6 +645,9 @@ const styles = StyleSheet.create({
   },
   bioCardLabel: { fontSize: 11, color: Colors.accent, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
   bioCardText: { fontSize: 14, color: Colors.text, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: { backgroundColor: Colors.bg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border },
+  tagText: { fontSize: 13, color: Colors.text, fontFamily: "Inter_500Medium" },
   bioEmpty: {
     flexDirection: "row", alignItems: "center", gap: 8,
     marginHorizontal: 16, marginTop: 14, marginBottom: 2,

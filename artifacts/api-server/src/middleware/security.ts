@@ -96,7 +96,7 @@ function stripHtml(s: string): string {
 }
 
 const PROFILE_LIMITS: Record<string, number> = {
-  name: 40,
+  name: 10,
   age: 10,
   position: 50,
   bodyType: 50,
@@ -104,10 +104,29 @@ const PROFILE_LIMITS: Record<string, number> = {
   lookingFor: 50,
   hosting: 50,
   cockSize: 20,
-  into: 300,
 };
 
+// Allowlist for "into" tags — only these values are accepted
+export const INTO_TAGS = [
+  "Oral", "Anal", "Rimming", "Kissing", "JO / Mutual",
+  "Raw", "Safe Sex", "Kink", "Fisting", "Toys",
+  "Groups", "Outdoors", "Cruising", "Discreet", "NSA", "Regular",
+] as const;
+
+const INTO_TAG_SET = new Set<string>(INTO_TAGS);
+
+export function sanitizeIntoTags(value: string): string {
+  if (!value) return "";
+  const tags = value.split(",").map((t) => t.trim()).filter((t) => INTO_TAG_SET.has(t));
+  return tags.slice(0, 8).join(",");
+}
+
 export function sanitizeProfileField(key: string, value: string): string {
+  // Name: letters and spaces only, max 10 chars
+  if (key === "name") {
+    const lettersOnly = value.replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, " ").trim();
+    return lettersOnly.slice(0, 10);
+  }
   const stripped = stripHtml(value);
   const limit = PROFILE_LIMITS[key] ?? 100;
   return stripped.slice(0, limit);

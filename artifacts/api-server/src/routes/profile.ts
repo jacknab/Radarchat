@@ -17,7 +17,7 @@ import { sendExpoPush } from "../lib/push";
 import { deleteR2Keys, photoUrisToR2Keys } from "../lib/r2";
 import { checkGpsJump, clearGpsHistory } from "../lib/gpsJump";
 import { profileEditRateLimit, goLiveRateLimit, messageRateLimit } from "../middleware/rateLimit";
-import { validateMessageContent, sanitizeProfileField, isValidExpoPushToken } from "../middleware/security";
+import { validateMessageContent, sanitizeProfileField, sanitizeIntoTags, isValidExpoPushToken } from "../middleware/security";
 
 const router: IRouter = Router();
 
@@ -65,7 +65,7 @@ router.put("/profile", requireToken, profileEditRateLimit, async (req: AuthedReq
     lookingFor: sanitizeProfileField("lookingFor", typeof body.lookingFor === "string" ? body.lookingFor : ""),
     hosting: sanitizeProfileField("hosting", typeof body.hosting === "string" ? body.hosting : ""),
     cockSize: typeof body.cockSize === "string" ? sanitizeProfileField("cockSize", body.cockSize) : null,
-    into: sanitizeProfileField("into", typeof body.into === "string" ? body.into : ""),
+    into: sanitizeIntoTags(typeof body.into === "string" ? body.into : ""),
     photos: newPhotos,
     isOnline: true,
     isLive: true,

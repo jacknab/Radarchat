@@ -369,7 +369,13 @@ export default function UserDetailScreen() {
         {/* What they're into */}
         {user.into ? (
           <View style={styles.bioSection}>
-            <Text style={styles.bioText}>{user.into}</Text>
+            <View style={styles.tagRow}>
+              {user.into.split(",").map((tag) => (
+                <View key={tag.trim()} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag.trim()}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -697,6 +703,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0A0A",
   },
   bioText: { fontSize: 15, color: Colors.text, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: { backgroundColor: "#1A1A1A", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "#2A2A2A" },
+  tagText: { fontSize: 13, color: Colors.text, fontFamily: "Inter_500Medium" },
 
   detailsSection: { backgroundColor: "#0A0A0A", paddingHorizontal: 20 },
   detailRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14 },

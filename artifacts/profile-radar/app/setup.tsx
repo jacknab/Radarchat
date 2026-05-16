@@ -123,7 +123,9 @@ export default function SetupScreen() {
   const [endowment, setEndowment] = useState(myProfile?.endowment ?? "");
   const [lookingFor, setLookingFor] = useState(myProfile?.lookingFor ?? "");
   const [hosting, setHosting] = useState(myProfile?.hosting ?? "");
-  const [into, setInto] = useState(myProfile?.into ?? "");
+  const [intoTags, setIntoTags] = useState<string[]>(
+    myProfile?.into ? myProfile.into.split(",").map((t) => t.trim()).filter(Boolean) : []
+  );
   const [cockSizeWhole, setCockSizeWhole] = useState(() => {
     const existing = myProfile?.cockSize ?? "0.0";
     const whole = existing.split(".")[0] ?? "0";
@@ -288,7 +290,7 @@ export default function SetupScreen() {
         lookingFor,
         hosting,
         cockSize: cockSizeValue,
-        into: into.trim(),
+        into: intoTags.join(","),
         photos: uploadedPhotos,
         latitude: lat,
         longitude: lon,
@@ -471,17 +473,28 @@ export default function SetupScreen() {
         )}
 
         {step === 5 && (
-          <TextInput
-            style={[styles.input, styles.intoInput]}
-            value={into}
-            onChangeText={(t) => setInto(t.slice(0, 300))}
-            placeholder={"e.g. Top into oral and making out. DDF, on PrEP. Happy to host. Discreet ok."}
-            placeholderTextColor={Colors.textMuted}
-            multiline
-            maxLength={300}
-            autoCorrect
-            textAlignVertical="top"
-          />
+          <View>
+            <Text style={[styles.chipLabel, { marginBottom: 4 }]}>Pick up to 8</Text>
+            <View style={styles.chipRow}>
+              {(["Oral","Anal","Rimming","Kissing","JO / Mutual","Raw","Safe Sex","Kink","Fisting","Toys","Groups","Outdoors","Cruising","Discreet","NSA","Regular"] as const).map((tag) => {
+                const selected = intoTags.includes(tag);
+                return (
+                  <Pressable
+                    key={tag}
+                    style={[styles.chip, selected && styles.chipActive]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setIntoTags((prev) =>
+                        selected ? prev.filter((t) => t !== tag) : prev.length < 8 ? [...prev, tag] : prev
+                      );
+                    }}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextActive]}>{tag}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         )}
 
         {step === 6 && (
