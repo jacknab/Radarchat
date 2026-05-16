@@ -17,7 +17,6 @@ const NAMES = ["Alex", "Jordan", "Tyler", "Casey", "Morgan", "Jamie", "Quinn", "
 const POSITIONS = ["Top", "Bottom", "Versatile", "Vers Top", "Vers Bottom", "Side"];
 const BODY_TYPES = ["Athletic", "Slim", "Average", "Muscular", "Stocky", "Heavyset"];
 const ENDOWMENTS = ["Cut", "Uncut"];
-const HIV_STATUSES = ["Neg", "Neg on PrEP", "Pos Undetectable", "Unknown"];
 const LOOKING_FORS = ["Right Now", "Tonight", "This Week", "Regular", "Discreet"];
 const HOSTING_OPTIONS = ["Can Host", "Can Travel", "Host & Travel", "No Host"];
 const AGES = ["22", "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "45", "48"];
@@ -84,7 +83,6 @@ async function tick() {
         position: pick(POSITIONS),
         bodyType: pick(BODY_TYPES),
         endowment: pick(ENDOWMENTS),
-        hivStatus: pick(HIV_STATUSES),
         lookingFor: pick(LOOKING_FORS),
         hosting: pick(HOSTING_OPTIONS),
         cockSize: pick(COCK_SIZES),

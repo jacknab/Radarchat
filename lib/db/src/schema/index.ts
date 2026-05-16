@@ -23,7 +23,6 @@ export const profiles = pgTable(
     position: text("position").notNull().default(""),
     bodyType: text("body_type").notNull().default(""),
     endowment: text("endowment").notNull().default(""),
-    hivStatus: text("hiv_status").notNull().default(""),
     lookingFor: text("looking_for").notNull().default(""),
     into: text("into").notNull().default(""),
     photos: jsonb("photos")

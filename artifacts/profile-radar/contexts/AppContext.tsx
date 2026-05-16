@@ -32,7 +32,6 @@ export interface UserProfile {
   position: string;
   bodyType: string;
   endowment?: string;
-  hivStatus?: string;
   lookingFor: string;
   hosting?: string;
   cockSize?: string;
@@ -52,7 +51,6 @@ export interface NearbyUser {
   position: string;
   bodyType: string;
   endowment?: string;
-  hivStatus?: string;
   lookingFor: string;
   hosting?: string;
   cockSize?: string;
@@ -172,7 +170,6 @@ function profileToNearbyUser(profile: UserProfile, lat: number, lon: number): Ne
     position: profile.position,
     bodyType: profile.bodyType,
     endowment: profile.endowment,
-    hivStatus: profile.hivStatus,
     lookingFor: profile.lookingFor,
     hosting: profile.hosting,
     cockSize: profile.cockSize,

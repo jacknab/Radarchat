@@ -26,7 +26,6 @@ import { uploadPhoto } from "@/lib/api";
 const POSITIONS = ["Top", "Bottom", "Versatile", "Vers Top", "Vers Bottom", "Side"];
 const BODY_TYPES = ["Athletic", "Slim", "Average", "Muscular", "Stocky", "Heavyset"];
 const ENDOWMENTS = ["Cut", "Uncut"];
-const HIV_STATUSES = ["Neg", "Neg on PrEP", "Pos Undetectable", "Unknown", "Prefer not to say"];
 const LOOKING_FORS = ["Right Now", "Tonight", "This Week", "Regular", "Discreet"];
 const HOSTING_OPTIONS = ["Can Host", "Can Travel", "Host & Travel", "No Host"];
 const AGE_ITEMS = Array.from({ length: 53 }, (_, i) => String(i + 18));
@@ -122,7 +121,6 @@ export default function SetupScreen() {
   const [position, setPosition] = useState(myProfile?.position ?? "");
   const [bodyType, setBodyType] = useState(myProfile?.bodyType ?? "");
   const [endowment, setEndowment] = useState(myProfile?.endowment ?? "");
-  const [hivStatus, setHivStatus] = useState(myProfile?.hivStatus ?? "");
   const [lookingFor, setLookingFor] = useState(myProfile?.lookingFor ?? "");
   const [hosting, setHosting] = useState(myProfile?.hosting ?? "");
   const [into, setInto] = useState(myProfile?.into ?? "");
@@ -145,7 +143,6 @@ export default function SetupScreen() {
     { title: "Your stats", subtitle: "Position, body type, and size" },
     { title: "What are you packing?", subtitle: "Cut or uncut — guys like to know" },
     { title: "When & where?", subtitle: "Availability and hosting situation" },
-    { title: "HIV status", subtitle: "Helps guys make informed decisions. Optional." },
     { title: "What are you into?", subtitle: "Be direct — tell guys what you want and what you've got" },
     { title: "Add your photos", subtitle: `Optional — you can upload photos later. Up to ${MAX_PUBLIC_PHOTOS} public + ${MAX_LOCKED_PHOTOS} locked. Tap a photo to lock it as private.` },
   ];
@@ -288,7 +285,6 @@ export default function SetupScreen() {
         position,
         bodyType,
         endowment,
-        hivStatus,
         lookingFor,
         hosting,
         cockSize: cockSizeValue,
@@ -312,9 +308,8 @@ export default function SetupScreen() {
     if (step === 2) return position.length > 0 && bodyType.length > 0;
     if (step === 3) return endowment.length > 0;
     if (step === 4) return lookingFor.length > 0 && hosting.length > 0;
-    if (step === 5) return hivStatus.length > 0;
+    if (step === 5) return true;
     if (step === 6) return true;
-    if (step === 7) return true;
     return false;
   };
 
@@ -473,20 +468,6 @@ export default function SetupScreen() {
         )}
 
         {step === 5 && (
-          <View style={styles.chipRow}>
-            {HIV_STATUSES.map((s) => (
-              <Pressable
-                key={s}
-                style={[styles.chip, hivStatus === s && styles.chipActive]}
-                onPress={() => { Haptics.selectionAsync(); setHivStatus(s); }}
-              >
-                <Text style={[styles.chipText, hivStatus === s && styles.chipTextActive]}>{s}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {step === 6 && (
           <TextInput
             style={[styles.input, styles.intoInput]}
             value={into}
@@ -500,7 +481,7 @@ export default function SetupScreen() {
           />
         )}
 
-        {step === 7 && (
+        {step === 6 && (
           <View>
             <View style={styles.photoGrid}>
               {photos.map((p, idx) => (
@@ -583,7 +564,7 @@ export default function SetupScreen() {
               <Text style={styles.nextBtnText}>{step < steps.length - 1 ? "Continue" : "Get Started"}</Text>
             )}
           </Pressable>
-          {step === 7 && (
+          {step === 6 && (
             <Pressable
               style={styles.skipBtn}
               onPress={() => { Haptics.selectionAsync(); handleNext(); }}

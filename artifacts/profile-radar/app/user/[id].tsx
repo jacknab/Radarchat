@@ -421,15 +421,6 @@ export default function UserDetailScreen() {
             <Text style={styles.detailLabel}>Hosting</Text>
             <Text style={styles.detailValue}>{user.hosting || "—"}</Text>
           </View>
-          {!!user.hivStatus && (
-            <>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>HIV Status</Text>
-                <Text style={styles.detailValue}>{user.hivStatus}</Text>
-              </View>
-            </>
-          )}
         </View>
 
         {/* Locked photos section */}

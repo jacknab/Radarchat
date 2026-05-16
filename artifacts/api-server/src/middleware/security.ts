@@ -101,7 +101,6 @@ const PROFILE_LIMITS: Record<string, number> = {
   position: 50,
   bodyType: 50,
   endowment: 20,
-  hivStatus: 30,
   lookingFor: 50,
   hosting: 50,
   cockSize: 20,
