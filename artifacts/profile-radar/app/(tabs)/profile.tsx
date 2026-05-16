@@ -522,16 +522,16 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* ── Bio ──────────────────────────────────────────────── */}
-      {myProfile?.bio ? (
+      {/* ── Into ─────────────────────────────────────────────── */}
+      {myProfile?.into ? (
         <View style={styles.bioCard}>
-          <Text style={styles.bioCardLabel}>About</Text>
-          <Text style={styles.bioCardText}>{myProfile.bio}</Text>
+          <Text style={styles.bioCardLabel}>Into</Text>
+          <Text style={styles.bioCardText}>{myProfile.into}</Text>
         </View>
       ) : (
         <Pressable style={styles.bioEmpty} onPress={() => router.push("/setup")}>
           <Ionicons name="add-circle-outline" size={16} color={Colors.textMuted} />
-          <Text style={styles.bioEmptyText}>Add a bio to tell others about yourself</Text>
+          <Text style={styles.bioEmptyText}>Tell guys what you're into</Text>
         </Pressable>
       )}
 

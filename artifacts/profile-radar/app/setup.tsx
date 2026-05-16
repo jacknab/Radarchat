@@ -25,6 +25,8 @@ import { uploadPhoto } from "@/lib/api";
 
 const POSITIONS = ["Top", "Bottom", "Versatile", "Vers Top", "Vers Bottom", "Side"];
 const BODY_TYPES = ["Athletic", "Slim", "Average", "Muscular", "Stocky", "Heavyset"];
+const ENDOWMENTS = ["Cut", "Uncut"];
+const HIV_STATUSES = ["Neg", "Neg on PrEP", "Pos Undetectable", "Unknown", "Prefer not to say"];
 const LOOKING_FORS = ["Right Now", "Tonight", "This Week", "Regular", "Discreet"];
 const HOSTING_OPTIONS = ["Can Host", "Can Travel", "Host & Travel", "No Host"];
 const AGE_ITEMS = Array.from({ length: 53 }, (_, i) => String(i + 18));
@@ -119,8 +121,11 @@ export default function SetupScreen() {
   });
   const [position, setPosition] = useState(myProfile?.position ?? "");
   const [bodyType, setBodyType] = useState(myProfile?.bodyType ?? "");
+  const [endowment, setEndowment] = useState(myProfile?.endowment ?? "");
+  const [hivStatus, setHivStatus] = useState(myProfile?.hivStatus ?? "");
   const [lookingFor, setLookingFor] = useState(myProfile?.lookingFor ?? "");
   const [hosting, setHosting] = useState(myProfile?.hosting ?? "");
+  const [into, setInto] = useState(myProfile?.into ?? "");
   const [cockSizeWhole, setCockSizeWhole] = useState(() => {
     const existing = myProfile?.cockSize ?? "0.0";
     const whole = existing.split(".")[0] ?? "0";
@@ -137,9 +142,11 @@ export default function SetupScreen() {
   const steps = [
     { title: "What's your name?", subtitle: "This is how others will see you" },
     { title: "How old are you?", subtitle: "Your age will be shown on your profile" },
-    { title: "Your details", subtitle: "Position and body type" },
-    { title: "When are you available?", subtitle: "Let guys know what you're looking for" },
-    { title: "Can you host?", subtitle: "Let guys know your situation" },
+    { title: "Your stats", subtitle: "Position, body type, and size" },
+    { title: "What are you packing?", subtitle: "Cut or uncut — guys like to know" },
+    { title: "When & where?", subtitle: "Availability and hosting situation" },
+    { title: "HIV status", subtitle: "Helps guys make informed decisions. Optional." },
+    { title: "What are you into?", subtitle: "Be direct — tell guys what you want and what you've got" },
     { title: "Add your photos", subtitle: `Optional — you can upload photos later. Up to ${MAX_PUBLIC_PHOTOS} public + ${MAX_LOCKED_PHOTOS} locked. Tap a photo to lock it as private.` },
   ];
 
@@ -278,12 +285,14 @@ export default function SetupScreen() {
       await saveProfile({
         name: name.trim(),
         age: AGE_ITEMS[ageIdx] ?? "18",
-        bio: "",
         position,
         bodyType,
+        endowment,
+        hivStatus,
         lookingFor,
         hosting,
         cockSize: cockSizeValue,
+        into: into.trim(),
         photos: uploadedPhotos,
         latitude: lat,
         longitude: lon,
@@ -299,11 +308,13 @@ export default function SetupScreen() {
 
   const canProceed = () => {
     if (step === 0) return name.trim().length >= 2;
-    if (step === 1) return true; // age wheel always has a valid value
+    if (step === 1) return true;
     if (step === 2) return position.length > 0 && bodyType.length > 0;
-    if (step === 3) return lookingFor.length > 0;
-    if (step === 4) return hosting.length > 0;
-    if (step === 5) return true;
+    if (step === 3) return endowment.length > 0;
+    if (step === 4) return lookingFor.length > 0 && hosting.length > 0;
+    if (step === 5) return hivStatus.length > 0;
+    if (step === 6) return true;
+    if (step === 7) return true;
     return false;
   };
 
@@ -420,39 +431,76 @@ export default function SetupScreen() {
 
         {step === 3 && (
           <View style={styles.chipRow}>
-            {LOOKING_FORS.map((lf) => (
+            {ENDOWMENTS.map((e) => (
               <Pressable
-                key={lf}
-                style={[styles.chip, lookingFor === lf && styles.chipActive]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setLookingFor(lf);
-                }}
+                key={e}
+                style={[styles.chip, endowment === e && styles.chipActive]}
+                onPress={() => { Haptics.selectionAsync(); setEndowment(e); }}
               >
-                <Text style={[styles.chipText, lookingFor === lf && styles.chipTextActive]}>{lf}</Text>
+                <Text style={[styles.chipText, endowment === e && styles.chipTextActive]}>{e}</Text>
               </Pressable>
             ))}
           </View>
         )}
 
         {step === 4 && (
+          <View>
+            <Text style={styles.chipLabel}>Looking for</Text>
+            <View style={[styles.chipRow, { marginBottom: 28 }]}>
+              {LOOKING_FORS.map((lf) => (
+                <Pressable
+                  key={lf}
+                  style={[styles.chip, lookingFor === lf && styles.chipActive]}
+                  onPress={() => { Haptics.selectionAsync(); setLookingFor(lf); }}
+                >
+                  <Text style={[styles.chipText, lookingFor === lf && styles.chipTextActive]}>{lf}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.chipLabel}>Hosting</Text>
+            <View style={styles.chipRow}>
+              {HOSTING_OPTIONS.map((h) => (
+                <Pressable
+                  key={h}
+                  style={[styles.chip, hosting === h && styles.chipActive]}
+                  onPress={() => { Haptics.selectionAsync(); setHosting(h); }}
+                >
+                  <Text style={[styles.chipText, hosting === h && styles.chipTextActive]}>{h}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {step === 5 && (
           <View style={styles.chipRow}>
-            {HOSTING_OPTIONS.map((h) => (
+            {HIV_STATUSES.map((s) => (
               <Pressable
-                key={h}
-                style={[styles.chip, hosting === h && styles.chipActive]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setHosting(h);
-                }}
+                key={s}
+                style={[styles.chip, hivStatus === s && styles.chipActive]}
+                onPress={() => { Haptics.selectionAsync(); setHivStatus(s); }}
               >
-                <Text style={[styles.chipText, hosting === h && styles.chipTextActive]}>{h}</Text>
+                <Text style={[styles.chipText, hivStatus === s && styles.chipTextActive]}>{s}</Text>
               </Pressable>
             ))}
           </View>
         )}
 
-        {step === 5 && (
+        {step === 6 && (
+          <TextInput
+            style={[styles.input, styles.intoInput]}
+            value={into}
+            onChangeText={(t) => setInto(t.slice(0, 300))}
+            placeholder={"e.g. Top into oral and making out. DDF, on PrEP. Happy to host. Discreet ok."}
+            placeholderTextColor={Colors.textMuted}
+            multiline
+            maxLength={300}
+            autoCorrect
+            textAlignVertical="top"
+          />
+        )}
+
+        {step === 7 && (
           <View>
             <View style={styles.photoGrid}>
               {photos.map((p, idx) => (
@@ -535,13 +583,10 @@ export default function SetupScreen() {
               <Text style={styles.nextBtnText}>{step < steps.length - 1 ? "Continue" : "Get Started"}</Text>
             )}
           </Pressable>
-          {step === 5 && (
+          {step === 7 && (
             <Pressable
               style={styles.skipBtn}
-              onPress={() => {
-                Haptics.selectionAsync();
-                handleNext();
-              }}
+              onPress={() => { Haptics.selectionAsync(); handleNext(); }}
               disabled={saving}
             >
               <Text style={styles.skipBtnText}>Skip for now</Text>
@@ -577,7 +622,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 16,
     fontSize: 17, color: Colors.text, fontFamily: "Inter_400Regular",
   },
-  bioInput: { minHeight: 120, textAlignVertical: "top", paddingTop: 16 },
+  intoInput: { minHeight: 140, textAlignVertical: "top", paddingTop: 16 },
   agePickerWrap: { alignItems: "center", gap: 16, paddingTop: 8 },
   ageUnit: { fontSize: 15, color: Colors.textSecondary, fontFamily: "Inter_400Regular" },
   chipLabel: { fontSize: 13, color: Colors.textSecondary, fontFamily: "Inter_500Medium", marginBottom: 12 },

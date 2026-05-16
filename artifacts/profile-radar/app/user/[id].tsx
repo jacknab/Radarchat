@@ -366,10 +366,10 @@ export default function UserDetailScreen() {
           </View>
         </View>
 
-        {/* Bio */}
-        {user.bio ? (
+        {/* What they're into */}
+        {user.into ? (
           <View style={styles.bioSection}>
-            <Text style={styles.bioText}>{user.bio}</Text>
+            <Text style={styles.bioText}>{user.into}</Text>
           </View>
         ) : null}
 
@@ -390,6 +390,27 @@ export default function UserDetailScreen() {
             <Text style={styles.detailLabel}>Body</Text>
             <Text style={styles.detailValue}>{user.bodyType || "—"}</Text>
           </View>
+          {!!user.endowment && (
+            <>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Endowment</Text>
+                <Text style={styles.detailValue}>{user.endowment}</Text>
+              </View>
+            </>
+          )}
+          {!!user.cockSize && (
+            <>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Size</Text>
+                <View style={styles.detailValueRow}>
+                  <MaterialCommunityIcons name="ruler" size={14} color={Colors.textMuted} style={{ marginRight: 4 }} />
+                  <Text style={styles.detailValue}>{user.cockSize}"</Text>
+                </View>
+              </View>
+            </>
+          )}
           <View style={styles.detailDivider} />
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Available</Text>
@@ -400,15 +421,12 @@ export default function UserDetailScreen() {
             <Text style={styles.detailLabel}>Hosting</Text>
             <Text style={styles.detailValue}>{user.hosting || "—"}</Text>
           </View>
-          {!!user.cockSize && (
+          {!!user.hivStatus && (
             <>
               <View style={styles.detailDivider} />
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Size</Text>
-                <View style={styles.detailValueRow}>
-                  <MaterialCommunityIcons name="ruler" size={14} color={Colors.textMuted} style={{ marginRight: 4 }} />
-                  <Text style={styles.detailValue}>{user.cockSize}"</Text>
-                </View>
+                <Text style={styles.detailLabel}>HIV Status</Text>
+                <Text style={styles.detailValue}>{user.hivStatus}</Text>
               </View>
             </>
           )}

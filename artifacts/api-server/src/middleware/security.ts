@@ -98,12 +98,14 @@ function stripHtml(s: string): string {
 const PROFILE_LIMITS: Record<string, number> = {
   name: 40,
   age: 10,
-  bio: 300,
   position: 50,
   bodyType: 50,
-  lookingFor: 100,
+  endowment: 20,
+  hivStatus: 30,
+  lookingFor: 50,
   hosting: 50,
   cockSize: 20,
+  into: 300,
 };
 
 export function sanitizeProfileField(key: string, value: string): string {

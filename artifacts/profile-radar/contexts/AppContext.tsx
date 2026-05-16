@@ -29,12 +29,14 @@ export interface UserProfile {
   id: string;
   name: string;
   age: string;
-  bio: string;
   position: string;
   bodyType: string;
+  endowment?: string;
+  hivStatus?: string;
   lookingFor: string;
   hosting?: string;
   cockSize?: string;
+  into?: string;
   photos: Photo[];
   isOnline: boolean;
   isLive?: boolean;
@@ -47,11 +49,14 @@ export interface NearbyUser {
   id: string;
   name: string;
   age: string;
-  bio: string;
   position: string;
   bodyType: string;
+  endowment?: string;
+  hivStatus?: string;
   lookingFor: string;
   hosting?: string;
+  cockSize?: string;
+  into?: string;
   photos: Photo[];
   isOnline: boolean;
   lastSeen: number;
@@ -164,11 +169,14 @@ function profileToNearbyUser(profile: UserProfile, lat: number, lon: number): Ne
     id: profile.id,
     name: profile.name,
     age: profile.age,
-    bio: profile.bio,
     position: profile.position,
     bodyType: profile.bodyType,
+    endowment: profile.endowment,
+    hivStatus: profile.hivStatus,
     lookingFor: profile.lookingFor,
     hosting: profile.hosting,
+    cockSize: profile.cockSize,
+    into: profile.into,
     photos: profile.photos,
     isOnline: true,
     lastSeen: Date.now(),

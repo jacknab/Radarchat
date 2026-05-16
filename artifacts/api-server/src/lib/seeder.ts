@@ -16,10 +16,22 @@ const DEFAULT_LON = -122.4194;
 const NAMES = ["Alex", "Jordan", "Tyler", "Casey", "Morgan", "Jamie", "Quinn", "Blake", "Reese", "Dakota", "Avery", "River", "Drew", "Cameron", "Kyle", "Shane", "Cole", "Ryan", "Derek", "Evan"];
 const POSITIONS = ["Top", "Bottom", "Versatile", "Vers Top", "Vers Bottom", "Side"];
 const BODY_TYPES = ["Athletic", "Slim", "Average", "Muscular", "Stocky", "Heavyset"];
+const ENDOWMENTS = ["Cut", "Uncut"];
+const HIV_STATUSES = ["Neg", "Neg on PrEP", "Pos Undetectable", "Unknown"];
 const LOOKING_FORS = ["Right Now", "Tonight", "This Week", "Regular", "Discreet"];
 const HOSTING_OPTIONS = ["Can Host", "Can Travel", "Host & Travel", "No Host"];
 const AGES = ["22", "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "45", "48"];
 const COCK_SIZES = ["5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0"];
+const INTO_OPTIONS = [
+  "Masc guys only. Love oral, good at it. DDF and on PrEP.",
+  "Into kissing, JO, oral. Happy to host. Discreet please.",
+  "Raw bottom. Love a thick top. Can travel or host.",
+  "Versatile. Into hairy guys. Casual and NSA only.",
+  "Top. Looking for a regular. Clean, fit, serious only.",
+  "Oral, manual, light kink. No strings. Free most evenings.",
+  "Hung bottom. Prefer bigger tops. Into bears and daddies.",
+  "Verse. Into guys my age or older. Discreet and laid back.",
+];
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -69,12 +81,14 @@ async function tick() {
         id,
         name: pick(NAMES),
         age: pick(AGES),
-        bio: "",
         position: pick(POSITIONS),
         bodyType: pick(BODY_TYPES),
+        endowment: pick(ENDOWMENTS),
+        hivStatus: pick(HIV_STATUSES),
         lookingFor: pick(LOOKING_FORS),
         hosting: pick(HOSTING_OPTIONS),
         cockSize: pick(COCK_SIZES),
+        into: pick(INTO_OPTIONS),
         photos: [],
         isOnline: true,
         isLive: true,

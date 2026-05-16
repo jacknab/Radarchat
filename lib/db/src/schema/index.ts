@@ -20,10 +20,12 @@ export const profiles = pgTable(
     id: text("id").primaryKey(),
     name: text("name").notNull().default(""),
     age: text("age").notNull().default(""),
-    bio: text("bio").notNull().default(""),
     position: text("position").notNull().default(""),
     bodyType: text("body_type").notNull().default(""),
+    endowment: text("endowment").notNull().default(""),
+    hivStatus: text("hiv_status").notNull().default(""),
     lookingFor: text("looking_for").notNull().default(""),
+    into: text("into").notNull().default(""),
     photos: jsonb("photos")
       .$type<ProfilePhoto[]>()
       .notNull()
