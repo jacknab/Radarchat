@@ -10,8 +10,8 @@ const ACTIVE_COUNT = 8;
 const TICK_INTERVAL_MS = 2 * 60_000;
 const SCATTER_MILES = 2;
 const MILES_PER_DEG_LAT = 69.0;
-const DEFAULT_LAT = 37.7749;
-const DEFAULT_LON = -122.4194;
+const DEFAULT_LAT = 39.7392;
+const DEFAULT_LON = -104.9903;
 
 const NAMES = ["Alex", "Jordan", "Tyler", "Casey", "Morgan", "Jamie", "Quinn", "Blake", "Reese", "Dakota", "Avery", "River", "Drew", "Cameron", "Kyle", "Shane", "Cole", "Ryan", "Derek", "Evan"];
 const POSITIONS = ["Top", "Bottom", "Versatile", "Vers Top", "Vers Bottom", "Side"];

@@ -493,8 +493,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Polling effect for nearby — use profile location if available, otherwise fall back to
   // default coordinates so seed profiles are visible before setup is complete.
-  const DEFAULT_LAT = 37.7749;
-  const DEFAULT_LON = -122.4194;
+  const DEFAULT_LAT = 39.7392;
+  const DEFAULT_LON = -104.9903;
   useEffect(() => {
     const lat = myProfile?.latitude ?? DEFAULT_LAT;
     const lon = myProfile?.longitude ?? DEFAULT_LON;
