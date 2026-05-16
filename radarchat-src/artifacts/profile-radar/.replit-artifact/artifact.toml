@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "Profile Radar"
+version = "1.0.0"
+id = "artifacts/profile-radar"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 19813
+
+[services.development]
+run = "pnpm --filter @workspace/profile-radar run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/profile-radar", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/profile-radar", "run", "serve" ]
+
+[services.env]
+PORT = "19813"
+BASE_PATH = "/"

@@ -1,0 +1,3 @@
+export const MAX_PUBLIC_PHOTOS = 9;
+export const MAX_LOCKED_PHOTOS = 9;
+export const MAX_TOTAL_PHOTOS = MAX_PUBLIC_PHOTOS + MAX_LOCKED_PHOTOS;
