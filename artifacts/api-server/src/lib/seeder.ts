@@ -34,6 +34,27 @@ const INTO_OPTIONS = [
   "Anal,Kink,Toys",
 ];
 
+// Pre-defined stable portrait URLs from randomuser.me CDN
+const MALE_PHOTO_INDICES = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70];
+const usedPhotoIndices = new Set<number>();
+
+function pickPhotoIndex(): number {
+  if (usedPhotoIndices.size >= MALE_PHOTO_INDICES.length) usedPhotoIndices.clear();
+  let idx: number;
+  do { idx = MALE_PHOTO_INDICES[Math.floor(Math.random() * MALE_PHOTO_INDICES.length)]!; }
+  while (usedPhotoIndices.has(idx));
+  usedPhotoIndices.add(idx);
+  return idx;
+}
+
+function makeSeedPhotos(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const n = pickPhotoIndex();
+    const uri = `https://randomuser.me/api/portraits/men/${n}.jpg`;
+    return { id: `sp_${n}`, uri, thumbnailUri: uri, isLocked: i === 1 };
+  });
+}
+
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
@@ -89,7 +110,7 @@ async function tick() {
         hosting: pick(HOSTING_OPTIONS),
         cockSize: pick(COCK_SIZES),
         into: pick(INTO_OPTIONS),
-        photos: [],
+        photos: makeSeedPhotos(Math.random() < 0.4 ? 2 : 1),
         isOnline: true,
         isLive: true,
         isShadowBanned: false,
