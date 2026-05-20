@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, like, not, or, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { SEED_OFFSETS } from "../lib/seeder";
 import {
   profiles,
   messages,
@@ -318,21 +319,49 @@ router.get("/nearby", async (req, res) => {
         .filter((id) => id !== token)
     : [];
 
-  const rows = await db
-    .select()
-    .from(profiles)
-    .where(
-      and(
-        eq(profiles.isOnline, true),
-        eq(profiles.isShadowBanned, false),
-        sql`${profiles.name} <> ''`,
-        sql`${profiles.latitude} IS NOT NULL`,
-        sql`${profiles.longitude} IS NOT NULL`,
+  // Fetch real (non-seeded) profiles and seeded profiles separately.
+  // Seeded profiles get virtual positions computed from the querying user's
+  // lat/lon + their fixed offset, so they always appear nearby regardless of
+  // where in the world the user is.
+  const [realRows, seedRows] = await Promise.all([
+    db
+      .select()
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.isOnline, true),
+          eq(profiles.isShadowBanned, false),
+          sql`${profiles.name} <> ''`,
+          sql`${profiles.latitude} IS NOT NULL`,
+          sql`${profiles.longitude} IS NOT NULL`,
+          not(like(profiles.id, "seed_uptown_%")),
+        ),
       ),
-    );
+    db
+      .select()
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.isOnline, true),
+          like(profiles.id, "seed_uptown_%"),
+        ),
+      ),
+  ]);
+
+  // Apply virtual positions to seeded profiles based on the caller's location.
+  const seedRowsVirtual = seedRows.map((r) => {
+    const offset = SEED_OFFSETS.find((o) => o.id === r.id);
+    return {
+      ...r,
+      latitude: lat + (offset?.dLat ?? 0),
+      longitude: lon + (offset?.dLon ?? 0),
+    };
+  });
+
+  const allRows = [...realRows, ...seedRowsVirtual];
 
   const now = Date.now();
-  const withDistance = rows
+  const withDistance = allRows
     .filter((r) => !token || r.id !== token)
     .filter((r) => !blockedIds.includes(r.id))
     .filter((r) => now - r.lastSeen <= ONLINE_WINDOW_MS)

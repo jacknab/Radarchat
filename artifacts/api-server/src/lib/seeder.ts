@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { profiles, messages, photoUnlockRequests, photoUnlocks } from "@workspace/db/schema";
-import { eq, sql, not, like, and } from "drizzle-orm";
+import { eq, not, like, and, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { logger } from "./logger";
 import { sendToUser, isUserConnected } from "./ws";
@@ -8,7 +8,26 @@ import { sendExpoPush } from "./push";
 
 const SEED_PREFIX = "seed_uptown_";
 
-// Uptown Denver 80203 — each guy has a fixed lat/lon (never changes).
+// Denver — used only as the stored DB lat/lon placeholder.  The real positions
+// seeded profiles show up at are computed per-query in the /nearby route using
+// the offsets below (user's lat + dLat, user's lon + dLon).
+const DENVER_LAT = 39.7415;
+const DENVER_LON = -104.9758;
+
+// ─── Per-profile offsets (exported for /nearby virtual positioning) ───────────
+// Each guy has a fixed relative offset (in degrees) from whoever is querying
+// /nearby.  At query time the route adds these to the real user's lat/lon so
+// the seeded profiles always scatter naturally around that user — wherever
+// in the world they happen to be.
+export const SEED_OFFSETS: { id: string; dLat: number; dLon: number }[] = [];
+
+// Each guy's position is defined as a relative offset (dLat, dLon) from the
+// cluster center — which is recalculated from real users' locations on every
+// keepalive tick. This way seeded profiles always appear near whoever is using
+// the app, regardless of where in the world they are.
+//
+// Offsets keep the original Denver spread (~500 m radius), so the guys feel
+// naturally scattered around the user — not all stacked on the same pin.
 const ROSTER: {
   slug: string;
   name: string;
@@ -20,116 +39,122 @@ const ROSTER: {
   hosting: string;
   cockSize: string;
   into: string;
-  lat: number;
-  lon: number;
+  dLat: number;   // degrees offset from cluster center
+  dLon: number;
   publicPhotos: number[];
   privatePhotos: number[];
 }[] = [
   {
     slug: "marcus", name: "Marcus", age: "29", position: "Top", bodyType: "Athletic",
     endowment: "Cut", lookingFor: "Right Now", hosting: "Can Host", cockSize: "7.5",
-    into: "Oral,Anal,NSA", lat: 39.7415, lon: -104.9758,
+    into: "Oral,Anal,NSA", dLat: 0.0000, dLon: 0.0000,
     publicPhotos: [3], privatePhotos: [13, 23],
   },
   {
     slug: "jaylen", name: "Jaylen", age: "26", position: "Versatile", bodyType: "Muscular",
     endowment: "Uncut", lookingFor: "Tonight", hosting: "Host & Travel", cockSize: "8.0",
-    into: "Oral,Anal,Kissing", lat: 39.7400, lon: -104.9780,
+    into: "Oral,Anal,Kissing", dLat: -0.0015, dLon: -0.0022,
     publicPhotos: [7, 17], privatePhotos: [27],
   },
   {
     slug: "bryce", name: "Bryce", age: "33", position: "Bottom", bodyType: "Slim",
     endowment: "Cut", lookingFor: "Discreet", hosting: "Can Travel", cockSize: "6.0",
-    into: "Oral,Rimming,Discreet", lat: 39.7430, lon: -104.9740,
+    into: "Oral,Rimming,Discreet", dLat: 0.0015, dLon: 0.0018,
     publicPhotos: [11], privatePhotos: [],
   },
   {
     slug: "cole", name: "Cole", age: "31", position: "Vers Top", bodyType: "Athletic",
     endowment: "Cut", lookingFor: "Regular", hosting: "Can Host", cockSize: "7.0",
-    into: "Oral,Anal,Raw", lat: 39.7390, lon: -104.9720,
+    into: "Oral,Anal,Raw", dLat: -0.0025, dLon: 0.0038,
     publicPhotos: [15, 25], privatePhotos: [35],
   },
   {
     slug: "drew", name: "Drew", age: "24", position: "Bottom", bodyType: "Average",
     endowment: "Uncut", lookingFor: "Right Now", hosting: "No Host", cockSize: "5.5",
-    into: "Oral,Kissing,JO / Mutual", lat: 39.7375, lon: -104.9765,
+    into: "Oral,Kissing,JO / Mutual", dLat: -0.0040, dLon: -0.0007,
     publicPhotos: [19], privatePhotos: [29, 39],
   },
   {
     slug: "ryan", name: "Ryan", age: "38", position: "Top", bodyType: "Heavyset",
     endowment: "Cut", lookingFor: "Tonight", hosting: "Can Host", cockSize: "7.0",
-    into: "Anal,NSA,Discreet", lat: 39.7420, lon: -104.9700,
+    into: "Anal,NSA,Discreet", dLat: 0.0005, dLon: 0.0058,
     publicPhotos: [22, 32], privatePhotos: [],
   },
   {
     slug: "eli", name: "Eli", age: "27", position: "Versatile", bodyType: "Slim",
     endowment: "Uncut", lookingFor: "This Week", hosting: "Host & Travel", cockSize: "6.5",
-    into: "Oral,Rimming,Anal", lat: 39.7398, lon: -104.9735,
+    into: "Oral,Rimming,Anal", dLat: -0.0017, dLon: 0.0023,
     publicPhotos: [41], privatePhotos: [51],
   },
   {
     slug: "nate", name: "Nate", age: "35", position: "Side", bodyType: "Athletic",
     endowment: "Cut", lookingFor: "Regular", hosting: "Can Travel", cockSize: "6.0",
-    into: "JO / Mutual,Oral,Kissing", lat: 39.7410, lon: -104.9770,
+    into: "JO / Mutual,Oral,Kissing", dLat: -0.0005, dLon: -0.0012,
     publicPhotos: [44, 54], privatePhotos: [],
   },
   {
     slug: "travis", name: "Travis", age: "30", position: "Vers Bottom", bodyType: "Stocky",
     endowment: "Cut", lookingFor: "Right Now", hosting: "Can Host", cockSize: "6.5",
-    into: "Anal,Kink,Raw", lat: 39.7385, lon: -104.9750,
+    into: "Anal,Kink,Raw", dLat: -0.0030, dLon: 0.0008,
     publicPhotos: [48], privatePhotos: [58, 68],
   },
   {
     slug: "derek", name: "Derek", age: "42", position: "Top", bodyType: "Muscular",
     endowment: "Uncut", lookingFor: "Discreet", hosting: "No Host", cockSize: "8.0",
-    into: "Oral,Anal,Discreet", lat: 39.7435, lon: -104.9755,
+    into: "Oral,Anal,Discreet", dLat: 0.0020, dLon: 0.0003,
     publicPhotos: [53], privatePhotos: [],
   },
   {
     slug: "kyle", name: "Kyle", age: "23", position: "Bottom", bodyType: "Slim",
     endowment: "Cut", lookingFor: "Tonight", hosting: "Host & Travel", cockSize: "5.5",
-    into: "Oral,Kissing,Regular", lat: 39.7368, lon: -104.9730,
+    into: "Oral,Kissing,Regular", dLat: -0.0047, dLon: 0.0028,
     publicPhotos: [56, 66], privatePhotos: [36],
   },
   {
     slug: "sean", name: "Sean", age: "45", position: "Versatile", bodyType: "Average",
     endowment: "Cut", lookingFor: "Regular", hosting: "Can Host", cockSize: "7.0",
-    into: "Oral,Anal,Outdoors", lat: 39.7395, lon: -104.9708,
+    into: "Oral,Anal,Outdoors", dLat: -0.0020, dLon: 0.0050,
     publicPhotos: [60], privatePhotos: [],
   },
   {
     slug: "brandon", name: "Brandon", age: "28", position: "Top", bodyType: "Athletic",
     endowment: "Uncut", lookingFor: "Right Now", hosting: "Can Host", cockSize: "7.5",
-    into: "Raw,Anal,NSA", lat: 39.7422, lon: -104.9742,
+    into: "Raw,Anal,NSA", dLat: 0.0007, dLon: 0.0016,
     publicPhotos: [62, 2], privatePhotos: [12],
   },
   {
     slug: "adam", name: "Adam", age: "36", position: "Vers Top", bodyType: "Muscular",
     endowment: "Cut", lookingFor: "This Week", hosting: "Can Travel", cockSize: "7.0",
-    into: "Kink,Anal,Toys", lat: 39.7378, lon: -104.9715,
+    into: "Kink,Anal,Toys", dLat: -0.0037, dLon: 0.0043,
     publicPhotos: [64], privatePhotos: [4, 14],
   },
   {
     slug: "chris", name: "Chris", age: "32", position: "Bottom", bodyType: "Average",
     endowment: "Uncut", lookingFor: "Tonight", hosting: "No Host", cockSize: "6.0",
-    into: "Oral,Rimming,Kissing", lat: 39.7440, lon: -104.9728,
+    into: "Oral,Rimming,Kissing", dLat: 0.0025, dLon: 0.0030,
     publicPhotos: [9, 18], privatePhotos: [],
   },
   {
     slug: "mike", name: "Mike", age: "40", position: "Top", bodyType: "Heavyset",
     endowment: "Cut", lookingFor: "Discreet", hosting: "Can Host", cockSize: "7.5",
-    into: "Discreet,NSA,Anal", lat: 39.7362, lon: -104.9758,
+    into: "Discreet,NSA,Anal", dLat: -0.0053, dLon: 0.0000,
     publicPhotos: [20], privatePhotos: [30, 50],
   },
 ];
 
+// Populate exported offsets now that ROSTER is defined.
+// The /nearby route uses these to compute each seeded guy's virtual position
+// relative to the querying user — so they always appear nearby regardless of
+// where in the world the user is.
+ROSTER.forEach((g) => {
+  SEED_OFFSETS.push({ id: `${SEED_PREFIX}${g.slug}`, dLat: g.dLat, dLon: g.dLon });
+});
+
 // ─── Initial drip schedule ────────────────────────────────────────────────────
-// Each inner array = roster indices that come online at that minute mark.
-// All 16 guys are online by ~25 minutes.
 const DRIP_MINUTES: number[][] = [
   [0, 1],   // Marcus, Jaylen  — minute 0
   [2],      // Bryce            — minute 2
-  [3, 4],   // Cole, Drew       — minute 4  (delay stored as minute index, see below)
+  [3, 4],   // Cole, Drew       — minute 4
   [5],      // Ryan             — minute 7
   [6, 7],   // Eli, Nate        — minute 9
   [8],      // Travis           — minute 12
@@ -140,20 +165,16 @@ const DRIP_MINUTES: number[][] = [
   [15],     // Mike             — minute 25
 ];
 
-// Actual delay in minutes for each batch
 const DRIP_DELAY_MINS = [0, 2, 4, 7, 9, 12, 14, 17, 19, 22, 25];
 
-// ─── Steady-state churn (runs forever after initial drip) ────────────────────
-// Every CHURN_INTERVAL_MS, randomly drop 1-3 guys offline for OFFLINE_DURATION_MS,
-// then bring them back. Keeps activity realistic during multi-hour testing.
-const CHURN_INTERVAL_MS  = 4 * 60_000;   // every 4 minutes, churn someone
-const OFFLINE_DURATION_MS = 6 * 60_000;  // guys stay offline for ~6 minutes
-const KEEPALIVE_INTERVAL_MS = 60_000;    // refresh lastSeen every 60s
+// ─── Steady-state churn ───────────────────────────────────────────────────────
+const CHURN_INTERVAL_MS   = 4 * 60_000;
+const OFFLINE_DURATION_MS = 6 * 60_000;
+const KEEPALIVE_INTERVAL_MS = 60_000;
 
-// Track which slugs are currently online (post-drip)
 const onlineSlugs = new Set<string>();
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildPhotos(publicNums: number[], privateNums: number[]) {
   const photos: { id: string; uri: string; thumbnailUri: string; isLocked: boolean }[] = [];
@@ -169,8 +190,7 @@ function buildPhotos(publicNums: number[], privateNums: number[]) {
 }
 
 function pickRandom<T>(arr: T[], count: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
 async function bringOnline(rosterIdx: number) {
@@ -179,6 +199,10 @@ async function bringOnline(rosterIdx: number) {
   const id = `${SEED_PREFIX}${guy.slug}`;
   const now = Date.now();
   const photos = buildPhotos(guy.publicPhotos, guy.privatePhotos);
+  // Stored lat/lon is a Denver placeholder — actual positions for /nearby are
+  // computed per-query by adding dLat/dLon to the real user's location.
+  const storedLat = DENVER_LAT + guy.dLat;
+  const storedLon = DENVER_LON + guy.dLon;
 
   await db
     .insert(profiles)
@@ -187,15 +211,11 @@ async function bringOnline(rosterIdx: number) {
       bodyType: guy.bodyType, endowment: guy.endowment, lookingFor: guy.lookingFor,
       hosting: guy.hosting, cockSize: guy.cockSize, into: guy.into, photos,
       isOnline: true, isLive: true, isShadowBanned: false,
-      lastSeen: now, latitude: guy.lat, longitude: guy.lon, createdAt: now,
+      lastSeen: now, latitude: storedLat, longitude: storedLon, createdAt: now,
     })
     .onConflictDoUpdate({
       target: profiles.id,
-      set: {
-        isOnline: true, isLive: true, lastSeen: now,
-        // location stays fixed — never update lat/lon
-        latitude: guy.lat, longitude: guy.lon,
-      },
+      set: { isOnline: true, isLive: true, lastSeen: now },
     });
 
   onlineSlugs.add(guy.slug);
@@ -213,20 +233,19 @@ async function takeOffline(slug: string) {
 }
 
 async function bringSlugOnline(slug: string) {
-  const guy = ROSTER.find((g) => g.slug === slug);
-  if (!guy) return;
   const now = Date.now();
   await db
     .update(profiles)
-    .set({ isOnline: true, isLive: true, lastSeen: now, latitude: guy.lat, longitude: guy.lon })
+    .set({ isOnline: true, isLive: true, lastSeen: now })
     .where(eq(profiles.id, `${SEED_PREFIX}${slug}`));
   onlineSlugs.add(slug);
   logger.info({ slug }, "Seed guy came back online");
 }
 
 async function keepalive() {
+  // Just touch lastSeen so live seeded profiles don't time out.
+  // Actual positions are computed per-query in /nearby using SEED_OFFSETS.
   const now = Date.now();
-  // Only touch guys currently flagged online so we don't resurface offline ones
   await db
     .update(profiles)
     .set({ lastSeen: now })
@@ -234,7 +253,6 @@ async function keepalive() {
 }
 
 // ─── Message simulation ───────────────────────────────────────────────────────
-// Each seeded guy has his own personality — messages feel distinct, not copy-paste.
 const GUY_MESSAGES: Record<string, string[]> = {
   marcus:  ["Hey 👋", "you nearby?", "what's up", "into anything fun rn?", "you free tonight?", "hey you're cute", "wanna hang?"],
   jaylen:  ["sup man", "you looking?", "what are you into?", "hey", "wanna meet up?", "you host?", "free now?"],
@@ -254,9 +272,9 @@ const GUY_MESSAGES: Record<string, string[]> = {
   mike:    ["hey", "discreet — you?", "wanna meet?", "you free?", "what's up", "looking for fun tonight"],
 };
 
-const MSG_MIN_INTERVAL_MS = 90_000;        // earliest next message after one fires (~1.5 min)
-const MSG_MAX_INTERVAL_MS = 4 * 60_000;   // latest (~4 min)
-const MSG_START_DELAY_MS  = 20_000;        // first message fires 20s after server start
+const MSG_MIN_INTERVAL_MS = 90_000;
+const MSG_MAX_INTERVAL_MS = 4 * 60_000;
+const MSG_START_DELAY_MS  = 20_000;
 
 async function getRealUserIds(): Promise<string[]> {
   const rows = await db
@@ -272,7 +290,6 @@ function pickMessage(slug: string): string {
 }
 
 async function sendSimulatedMessage() {
-  // Need at least one real user and at least one seeded guy online
   if (onlineSlugs.size === 0) return;
   const realIds = await getRealUserIds();
   if (realIds.length === 0) return;
@@ -303,21 +320,18 @@ function scheduleNextMessage() {
   setTimeout(() => {
     sendSimulatedMessage()
       .catch((err) => logger.error({ err }, "Seeder message error"))
-      .finally(() => scheduleNextMessage()); // always schedule the next one
+      .finally(() => scheduleNextMessage());
   }, delay);
 }
 
-// ─── Photo unlock request simulation ─────────────────────────────────────────
-const UNLOCK_RESPOND_INTERVAL_MS = 90_000;  // check every 90s for requests on seeded profiles
-const UNLOCK_SEND_MIN_MS  = 10 * 60_000;   // min gap between seeder-sent requests
-const UNLOCK_SEND_MAX_MS  = 20 * 60_000;   // max gap
-const UNLOCK_SEND_START_MS = 60_000;        // first unlock request after 1 min
-
-// 60% chance a seeded guy accepts an incoming request; 40% he silently ignores it
+// ─── Photo unlock simulation ──────────────────────────────────────────────────
+const UNLOCK_RESPOND_INTERVAL_MS = 90_000;
+const UNLOCK_SEND_MIN_MS  = 10 * 60_000;
+const UNLOCK_SEND_MAX_MS  = 20 * 60_000;
+const UNLOCK_SEND_START_MS = 60_000;
 const ACCEPT_CHANCE = 0.6;
 
 async function respondToUnlockRequests() {
-  // Find pending requests where the target IS a seeded profile (real user → seed)
   const pending = await db
     .select({ requesterId: photoUnlockRequests.requesterId, targetId: photoUnlockRequests.targetId })
     .from(photoUnlockRequests)
@@ -325,7 +339,6 @@ async function respondToUnlockRequests() {
 
   for (const req of pending) {
     if (Math.random() < ACCEPT_CHANCE) {
-      // Accept after a realistic 30s–3.5min pause
       const delay = 30_000 + Math.random() * 3 * 60_000;
       setTimeout(async () => {
         try {
@@ -347,7 +360,6 @@ async function respondToUnlockRequests() {
         }
       }, delay);
     } else {
-      // Silently ignore — remove from queue after 5–10 min so it doesn't linger
       const delay = 5 * 60_000 + Math.random() * 5 * 60_000;
       setTimeout(async () => {
         try {
@@ -366,13 +378,11 @@ async function respondToUnlockRequests() {
   }
 }
 
-// Seeded guy proactively sends an unlock request TO the real user
 async function sendRandomUnlockRequest() {
   if (onlineSlugs.size === 0) return;
   const realIds = await getRealUserIds();
   if (realIds.length === 0) return;
 
-  // Only guys who actually have private photos can send an unlock request
   const eligibleSlugs = Array.from(onlineSlugs).filter((s) => {
     const guy = ROSTER.find((g) => g.slug === s);
     return guy && guy.privatePhotos.length > 0;
@@ -384,7 +394,6 @@ async function sendRandomUnlockRequest() {
   const senderId    = `${SEED_PREFIX}${senderSlug}`;
   const senderGuy   = ROSTER.find((g) => g.slug === senderSlug)!;
 
-  // Skip if already requested or already granted
   const [[existingReq], [existingGrant]] = await Promise.all([
     db.select().from(photoUnlockRequests)
       .where(and(eq(photoUnlockRequests.requesterId, senderId), eq(photoUnlockRequests.targetId, recipientId)))
@@ -404,7 +413,6 @@ async function sendRandomUnlockRequest() {
     ? `https://randomuser.me/api/portraits/men/${senderGuy.publicPhotos[0]}.jpg`
     : null;
 
-  // Real-time WS delivery
   sendToUser(recipientId, {
     type: "unlock_request",
     request: {
@@ -416,7 +424,6 @@ async function sendRandomUnlockRequest() {
     },
   });
 
-  // Push notification if user is not connected via WebSocket
   if (!isUserConnected(recipientId)) {
     const [recipient] = await db
       .select({ pushToken: profiles.pushToken })
@@ -445,19 +452,17 @@ function scheduleNextUnlockRequest() {
   }, delay);
 }
 
-// ─── Churn loop (runs indefinitely) ──────────────────────────────────────────
+// ─── Churn loop ───────────────────────────────────────────────────────────────
 function startChurn() {
   setInterval(() => {
     if (onlineSlugs.size === 0) return;
 
-    // Drop 1–3 online guys offline
     const dropCount = Math.floor(Math.random() * 3) + 1;
     const toDrop = pickRandom(Array.from(onlineSlugs), Math.min(dropCount, onlineSlugs.size));
 
     for (const slug of toDrop) {
       takeOffline(slug).catch((err) => logger.error({ err, slug }, "Churn takeOffline error"));
 
-      // Bring them back after OFFLINE_DURATION ± random jitter (up to +3 min)
       const jitter = Math.random() * 3 * 60_000;
       setTimeout(() => {
         bringSlugOnline(slug).catch((err) =>
@@ -468,9 +473,10 @@ function startChurn() {
   }, CHURN_INTERVAL_MS);
 }
 
-// ─── Entry point ─────────────────────────────────────────────────────────────
+// ─── Entry point ──────────────────────────────────────────────────────────────
 export function startSeeder() {
-  // Schedule initial drip — all 16 guys online by minute 25
+  // Schedule initial drip — positions are stored as Denver placeholders;
+  // the /nearby route computes virtual positions per-query from SEED_OFFSETS.
   for (let batchIdx = 0; batchIdx < DRIP_MINUTES.length; batchIdx++) {
     const rosterIndices = DRIP_MINUTES[batchIdx]!;
     const delayMs = (DRIP_DELAY_MINS[batchIdx] ?? 0) * 60_000;
@@ -484,30 +490,30 @@ export function startSeeder() {
     }
   }
 
-  // Start churn loop after all guys are online (minute 26)
+  // Churn starts after all guys are online
   setTimeout(() => {
     startChurn();
     logger.info("Seeder entered steady-state churn — running indefinitely");
   }, 26 * 60_000);
 
-  // Keepalive every 60s — runs from the start so early guys don't time out
+  // Keepalive: refresh cluster center + reposition all online guys every 60 s
   setInterval(() => {
     keepalive().catch((err) => logger.error({ err }, "Seeder keepalive error"));
   }, KEEPALIVE_INTERVAL_MS);
 
-  // Message simulation — first message after 5 min, then every 3–8 min forever
+  // Message simulation
   setTimeout(() => {
     sendSimulatedMessage()
       .catch((err) => logger.error({ err }, "Seeder first message error"))
       .finally(() => scheduleNextMessage());
   }, MSG_START_DELAY_MS);
 
-  // Unlock request simulation — poll every 90s for responses to real user requests
+  // Unlock request simulation — poll every 90s for responses
   setInterval(() => {
     respondToUnlockRequests().catch((err) => logger.error({ err }, "Seeder respondToUnlock error"));
   }, UNLOCK_RESPOND_INTERVAL_MS);
 
-  // Seeded guys proactively send unlock requests to real users — first after 8 min
+  // Proactive unlock requests from seeded guys
   setTimeout(() => {
     sendRandomUnlockRequest()
       .catch((err) => logger.error({ err }, "Seeder first unlock request error"))
