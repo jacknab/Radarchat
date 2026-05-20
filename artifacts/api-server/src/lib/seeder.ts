@@ -1,7 +1,9 @@
 import { db } from "@workspace/db";
-import { profiles } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { profiles, messages } from "@workspace/db/schema";
+import { eq, sql, not, like } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { logger } from "./logger";
+import { sendToUser } from "./ws";
 
 const SEED_PREFIX = "seed_uptown_";
 
@@ -230,6 +232,80 @@ async function keepalive() {
     .where(sql`${profiles.id} LIKE ${"seed_uptown_%"} AND ${profiles.isLive} = true`);
 }
 
+// ─── Message simulation ───────────────────────────────────────────────────────
+// Each seeded guy has his own personality — messages feel distinct, not copy-paste.
+const GUY_MESSAGES: Record<string, string[]> = {
+  marcus:  ["Hey 👋", "you nearby?", "what's up", "into anything fun rn?", "you free tonight?", "hey you're cute", "wanna hang?"],
+  jaylen:  ["sup man", "you looking?", "what are you into?", "hey", "wanna meet up?", "you host?", "free now?"],
+  bryce:   ["hi there 😊", "you seem cool", "hey cutie", "what's good?", "you around?", "into anything tonight?"],
+  cole:    ["hey man", "looking?", "you close by?", "what's up", "free tonight?", "you top or bottom?", "wanna connect?"],
+  drew:    ["heyyy", "omg you're hot", "hi 😍", "what are you up to?", "you free?", "hey cutie 👀"],
+  ryan:    ["hey", "wanna meet?", "discreet here, you?", "you host?", "what's up man", "free later?"],
+  eli:     ["hey 👋", "you around?", "into vers guys?", "wanna hang tonight?", "what are you looking for?", "hey handsome"],
+  nate:    ["hi there", "you seem cool", "what's good?", "looking for anything?", "you nearby?", "hey man"],
+  travis:  ["hey", "you looking rn?", "wanna meet up?", "into anything raw?", "free tonight?", "what's up"],
+  derek:   ["hey", "discreet here", "you host?", "wanna meet?", "what are you into?", "you free?"],
+  kyle:    ["hiiii", "omg hey", "you're cute 😊", "wanna hang?", "what are you up to?", "hey you!"],
+  sean:    ["hey man", "you around?", "looking?", "what's up", "you free tonight?", "into anything fun?"],
+  brandon: ["hey", "you looking?", "wanna meet up rn?", "you host?", "what's good", "free?"],
+  adam:    ["hey there", "you into kink at all?", "wanna connect?", "looking for anything?", "what's up man"],
+  chris:   ["hi 😊", "you seem nice", "what are you looking for?", "hey cutie", "wanna chat?", "you around?"],
+  mike:    ["hey", "discreet — you?", "wanna meet?", "you free?", "what's up", "looking for fun tonight"],
+};
+
+const MSG_MIN_INTERVAL_MS = 3 * 60_000;   // earliest next message after one fires
+const MSG_MAX_INTERVAL_MS = 8 * 60_000;   // latest
+const MSG_START_DELAY_MS  = 5 * 60_000;   // wait 5 min before first message (a few guys online)
+
+async function getRealUserIds(): Promise<string[]> {
+  const rows = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(not(like(profiles.id, `${SEED_PREFIX}%`)));
+  return rows.map((r) => r.id);
+}
+
+function pickMessage(slug: string): string {
+  const pool = GUY_MESSAGES[slug] ?? ["hey", "what's up?", "you around?"];
+  return pool[Math.floor(Math.random() * pool.length)]!;
+}
+
+async function sendSimulatedMessage() {
+  // Need at least one real user and at least one seeded guy online
+  if (onlineSlugs.size === 0) return;
+  const realIds = await getRealUserIds();
+  if (realIds.length === 0) return;
+
+  const recipientId = realIds[Math.floor(Math.random() * realIds.length)]!;
+  const slugs = Array.from(onlineSlugs);
+  const senderSlug = slugs[Math.floor(Math.random() * slugs.length)]!;
+  const senderId = `${SEED_PREFIX}${senderSlug}`;
+  const text = pickMessage(senderSlug);
+  const senderName = ROSTER.find((g) => g.slug === senderSlug)?.name ?? senderSlug;
+
+  const id = randomUUID();
+  const timestamp = Date.now();
+
+  const [row] = await db
+    .insert(messages)
+    .values({ id, senderId, recipientId, text, timestamp, read: false })
+    .returning();
+
+  if (row) {
+    sendToUser(recipientId, { type: "message", message: row });
+    logger.info({ from: senderName, to: recipientId, text }, "Seeder sent message");
+  }
+}
+
+function scheduleNextMessage() {
+  const delay = MSG_MIN_INTERVAL_MS + Math.random() * (MSG_MAX_INTERVAL_MS - MSG_MIN_INTERVAL_MS);
+  setTimeout(() => {
+    sendSimulatedMessage()
+      .catch((err) => logger.error({ err }, "Seeder message error"))
+      .finally(() => scheduleNextMessage()); // always schedule the next one
+  }, delay);
+}
+
 // ─── Churn loop (runs indefinitely) ──────────────────────────────────────────
 function startChurn() {
   setInterval(() => {
@@ -280,8 +356,15 @@ export function startSeeder() {
     keepalive().catch((err) => logger.error({ err }, "Seeder keepalive error"));
   }, KEEPALIVE_INTERVAL_MS);
 
+  // Message simulation — first message after 5 min, then every 3–8 min forever
+  setTimeout(() => {
+    sendSimulatedMessage()
+      .catch((err) => logger.error({ err }, "Seeder first message error"))
+      .finally(() => scheduleNextMessage());
+  }, MSG_START_DELAY_MS);
+
   logger.info(
-    { total: ROSTER.length, dripMins: 25, churnStartMins: 26 },
-    "Seeder started — drip over 25 min then continuous churn",
+    { total: ROSTER.length, dripMins: 25, churnStartMins: 26, firstMsgMins: 5 },
+    "Seeder started — drip over 25 min, continuous churn, messages every 3–8 min",
   );
 }
