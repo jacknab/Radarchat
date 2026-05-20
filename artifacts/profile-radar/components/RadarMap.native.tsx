@@ -5,7 +5,7 @@ import { Colors } from "@/constants/colors";
 import { NearbyUser } from "@/contexts/AppContext";
 import { resolvePhotoUri } from "@/lib/api";
 
-const MAP_DELTA = 0.018;
+const MAP_DELTA = 0.038;
 
 interface Props {
   region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
