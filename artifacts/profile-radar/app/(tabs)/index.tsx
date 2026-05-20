@@ -153,6 +153,7 @@ export default function MapScreen() {
           setSelectedUser(user);
         }}
         mapRef={mapRef}
+        topPadding={insets.top + 130}
       />
 
       <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12) }]}>

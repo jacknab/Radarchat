@@ -15,6 +15,7 @@ interface Props {
   selectedUserId?: string;
   onMarkerPress: (user: NearbyUser) => void;
   mapRef?: React.RefObject<MapView>;
+  topPadding?: number;
 }
 
 const darkMapStyle = [
@@ -29,7 +30,7 @@ const darkMapStyle = [
   { featureType: "transit", elementType: "geometry", stylers: [{ color: "#0E0E22" }] },
 ];
 
-export default function RadarMap({ region, userLocation, locationGranted, nearbyUsers, selectedUserId, onMarkerPress, mapRef }: Props) {
+export default function RadarMap({ region, userLocation, locationGranted, nearbyUsers, selectedUserId, onMarkerPress, mapRef, topPadding = 0 }: Props) {
   const centerLocation = userLocation ?? (region.latitude ? { latitude: region.latitude, longitude: region.longitude } : null);
 
   const lastAnimatedRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -69,6 +70,7 @@ export default function RadarMap({ region, userLocation, locationGranted, nearby
       pitchEnabled={false}
       zoomTapEnabled={false}
       customMapStyle={darkMapStyle}
+      mapPadding={{ top: topPadding, right: 0, bottom: 0, left: 0 }}
     >
       {centerLocation && (
         <Circle
