@@ -6,3 +6,9 @@ id = "n5XCJveczvU2JxuK3hasJ"
 uri = "file://security-audit.md"
 type = "text"
 title = "Radarchat Security Audit & Hardening Report"
+
+[[outputs]]
+id = "ogtskEMFXxtHjGy5e5u8U"
+uri = "file://radar-qr.png"
+type = "image"
+title = "Scan with iPhone Camera or Expo Go"
