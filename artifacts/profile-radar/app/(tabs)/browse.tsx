@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     fontSize: 9, color: "rgba(255,255,255,0.55)", fontFamily: "Inter_500Medium",
   },
   youBadge: {
-    position: "absolute", top: 6, left: 6,
+    position: "absolute", bottom: 6, left: 7,
     backgroundColor: Colors.accent, borderRadius: 4,
     paddingHorizontal: 5, paddingVertical: 2,
   },
