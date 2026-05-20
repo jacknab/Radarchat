@@ -271,6 +271,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // The person whose photos we requested just approved us — update immediately
           const granterId = String(data.granterId);
           setReceivedUnlocks((prev) => ({ ...prev, [granterId]: true }));
+          playMessageAlert().catch(() => {});
+        }
+        if (data.type === "unlock_request") {
+          // A nearby guy is requesting access to our private photos — notify with sound
+          const req = data.request as IncomingUnlockRequest;
+          setIncomingUnlockRequests((prev) => {
+            if (prev.some((r) => r.requesterId === req.requesterId)) return prev;
+            return [req, ...prev];
+          });
+          playMessageAlert().catch(() => {});
         }
         if (data.type === "message") {
           const msg: Message = {

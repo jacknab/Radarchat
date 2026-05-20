@@ -51,7 +51,7 @@ export function apiRateLimit(req: Request, res: Response, next: NextFunction) {
   }
 
   bucket.reqCount++;
-  if (bucket.reqCount > 20) {
+  if (bucket.reqCount > 120) {
     res.status(429).json({ error: "Too many requests. Please slow down." });
     return;
   }
