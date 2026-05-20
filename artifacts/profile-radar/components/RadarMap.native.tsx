@@ -112,6 +112,7 @@ export default function RadarMap({ region, userLocation, locationGranted, nearby
           );
         }
 
+        const ringColor = user.isOnline ? Colors.online : Colors.accent;
         return (
           <Marker
             key={user.id}
@@ -121,14 +122,13 @@ export default function RadarMap({ region, userLocation, locationGranted, nearby
             tracksViewChanges={isSelected}
           >
             <View style={[styles.mapPin, isSelected && styles.mapPinSelected]}>
-              <View style={styles.mapPinInner}>
+              <View style={[styles.mapPinInner, { borderColor: ringColor, shadowColor: ringColor }]}>
                 {pinUri ? (
                   <Image source={{ uri: pinUri }} style={styles.pinImage} />
                 ) : (
                   <Text style={styles.mapPinText}>{user.name[0]}</Text>
                 )}
               </View>
-              <View style={styles.onlineDot} />
             </View>
           </Marker>
         );
@@ -143,19 +143,13 @@ const styles = StyleSheet.create({
   mapPinInner: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.accent, alignItems: "center",
-    justifyContent: "center", borderWidth: 2, borderColor: "#fff",
-    shadowColor: Colors.accent, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8, shadowRadius: 8, elevation: 8,
+    justifyContent: "center", borderWidth: 3, borderColor: Colors.online,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9, shadowRadius: 8, elevation: 8,
     overflow: "hidden",
   },
   pinImage: { width: "100%", height: "100%" },
   mapPinText: { fontSize: 13, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-  onlineDot: {
-    position: "absolute", bottom: 1, right: 1,
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.online, borderWidth: 1.5, borderColor: "#fff",
-    zIndex: 1,
-  },
   // "YOU" marker styles
   mePinWrapper: { alignItems: "center", gap: 4 },
   mePinInner: {
