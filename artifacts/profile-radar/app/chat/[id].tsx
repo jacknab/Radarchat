@@ -87,9 +87,11 @@ export default function ChatScreen() {
     blockUser, unblockUser, isBlocked,
     addToHotStuff, removeFromHotStuff, isHotStuff,
     archiveConversation, deleteConversation, setActivePeer,
+    requestUnlock, hasUnlocked, canSeeLockedPhotos,
   } = useApp();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList>(null);
 
@@ -234,6 +236,21 @@ export default function ChatScreen() {
     );
   }
 
+  const lockedPhotoCount = user?.photos.filter((p) => p.isLocked).length ?? 0;
+  const alreadyRequested = hasUnlocked(id);
+  const photosUnlocked = canSeeLockedPhotos(id);
+
+  async function handleRequestUnlock() {
+    if (requesting || alreadyRequested) return;
+    setRequesting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await requestUnlock(id);
+    } finally {
+      setRequesting(false);
+    }
+  }
+
   const topInset = insets.top + (Platform.OS === "web" ? 67 : 0);
   const coverPhoto = user?.photos.find((p) => !p.isLocked);
   const fallbackColors = ["#FF7A00", "#6C5CE7", "#00B4D8", "#06D6A0", "#FFB703", "#FB8500"];
@@ -285,6 +302,35 @@ export default function ChatScreen() {
           <Text style={styles.blockedText}>You have blocked this user</Text>
         </View>
       ) : null}
+
+      {/* Private photo unlock bar */}
+      {!blocked && lockedPhotoCount > 0 && (
+        photosUnlocked ? (
+          <View style={styles.unlockedBanner}>
+            <Ionicons name="lock-open" size={15} color={Colors.online} />
+            <Text style={styles.unlockedBannerText}>
+              Private photos unlocked — tap their profile to view
+            </Text>
+          </View>
+        ) : alreadyRequested ? (
+          <View style={styles.unlockPending}>
+            <Ionicons name="time-outline" size={15} color={Colors.textSecondary} />
+            <Text style={styles.unlockPendingText}>
+              Unlock request sent · waiting for {user?.name ?? "them"}
+            </Text>
+          </View>
+        ) : (
+          <Pressable style={styles.unlockBar} onPress={handleRequestUnlock} disabled={requesting}>
+            <View style={styles.unlockBarLeft}>
+              <Ionicons name="lock-closed" size={15} color={Colors.accent} />
+              <Text style={styles.unlockBarText}>
+                {lockedPhotoCount} private photo{lockedPhotoCount !== 1 ? "s" : ""} · Request access
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={Colors.accent} />
+          </Pressable>
+        )
+      )}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -409,6 +455,31 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: "rgba(255,68,68,0.2)",
   },
   blockedText: { fontSize: 13, color: Colors.danger, fontFamily: "Inter_500Medium" },
+
+  unlockBar: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 18, paddingVertical: 11,
+    backgroundColor: "rgba(255,122,0,0.08)",
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,122,0,0.18)",
+  },
+  unlockBarLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  unlockBarText: { fontSize: 13, color: Colors.accent, fontFamily: "Inter_500Medium" },
+
+  unlockPending: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 18, paddingVertical: 11,
+    backgroundColor: Colors.bgCard,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  unlockPendingText: { fontSize: 13, color: Colors.textSecondary, fontFamily: "Inter_400Regular" },
+
+  unlockedBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 18, paddingVertical: 11,
+    backgroundColor: "rgba(6,214,160,0.08)",
+    borderBottomWidth: 1, borderBottomColor: "rgba(6,214,160,0.2)",
+  },
+  unlockedBannerText: { fontSize: 13, color: Colors.online, fontFamily: "Inter_500Medium" },
 
   emptyChat: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 40 },
   emptyChatAvatar: { width: 88, height: 88, borderRadius: 44, marginBottom: 4 },
