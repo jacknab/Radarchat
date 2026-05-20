@@ -19,7 +19,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { useApp, Message, NearbyUser } from "@/contexts/AppContext";
-import { resolvePhotoUri } from "@/lib/api";
+import { resolvePhotoUri, API_BASE } from "@/lib/api";
 
 const { width } = Dimensions.get("window");
 const MAX_BUBBLE_WIDTH = width * 0.72;
@@ -92,6 +92,7 @@ export default function ChatScreen() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList>(null);
 
@@ -119,6 +120,43 @@ export default function ChatScreen() {
       inputRef.current?.focus();
     }
   }, [text, sending, blocked, id]);
+
+  const handleSuggestReply = useCallback(async () => {
+    if (suggesting || blocked || !isSetup) return;
+    setSuggesting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const payload = {
+        messages: messages.map((m) => ({
+          sender: m.senderId === myProfile?.id ? "me" : "them",
+          text: m.text,
+        })),
+        peerName: user?.name,
+        myName: myProfile?.name,
+        peerProfile: {
+          lookingFor: user?.lookingFor,
+          position: (user as any)?.position,
+          age: user?.age,
+        },
+      };
+      const res = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Request failed");
+      const { suggestion } = await res.json();
+      if (suggestion) {
+        setText(suggestion);
+        inputRef.current?.focus();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSuggesting(false);
+    }
+  }, [suggesting, blocked, isSetup, messages, myProfile, user, id]);
 
   const hotStuffLabel = isHot ? "Remove from Hot Stuff" : "Add to Hot Stuff";
   const blockLabel = blocked ? "Unblock User" : "Block User";
@@ -411,6 +449,17 @@ export default function ChatScreen() {
               onSubmitEditing={Platform.OS === "web" ? handleSend : undefined}
             />
             <Pressable
+              style={[styles.suggestBtn, (blocked || suggesting) && styles.suggestBtnDisabled]}
+              onPress={handleSuggestReply}
+              disabled={blocked || suggesting}
+            >
+              <Ionicons
+                name={suggesting ? "hourglass-outline" : "sparkles"}
+                size={18}
+                color={!blocked ? Colors.accent : Colors.textMuted}
+              />
+            </Pressable>
+            <Pressable
               style={[styles.sendBtn, (!text.trim() || blocked) && styles.sendBtnDisabled]}
               onPress={handleSend}
               disabled={!text.trim() || blocked || sending}
@@ -529,6 +578,12 @@ const styles = StyleSheet.create({
     fontSize: 15, color: Colors.text, fontFamily: "Inter_400Regular",
     borderWidth: 1, borderColor: Colors.border,
   },
+  suggestBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: "rgba(255,122,0,0.12)", alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(255,122,0,0.25)",
+  },
+  suggestBtnDisabled: { opacity: 0.4 },
   sendBtn: {
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center",
