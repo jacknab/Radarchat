@@ -254,15 +254,15 @@ const GUY_MESSAGES: Record<string, string[]> = {
   mike:    ["hey", "discreet — you?", "wanna meet?", "you free?", "what's up", "looking for fun tonight"],
 };
 
-const MSG_MIN_INTERVAL_MS = 3 * 60_000;   // earliest next message after one fires
-const MSG_MAX_INTERVAL_MS = 8 * 60_000;   // latest
-const MSG_START_DELAY_MS  = 5 * 60_000;   // wait 5 min before first message (a few guys online)
+const MSG_MIN_INTERVAL_MS = 90_000;        // earliest next message after one fires (~1.5 min)
+const MSG_MAX_INTERVAL_MS = 4 * 60_000;   // latest (~4 min)
+const MSG_START_DELAY_MS  = 20_000;        // first message fires 20s after server start
 
 async function getRealUserIds(): Promise<string[]> {
   const rows = await db
     .select({ id: profiles.id })
     .from(profiles)
-    .where(not(like(profiles.id, `${SEED_PREFIX}%`)));
+    .where(not(like(profiles.id, "seed%")));
   return rows.map((r) => r.id);
 }
 
@@ -311,7 +311,7 @@ function scheduleNextMessage() {
 const UNLOCK_RESPOND_INTERVAL_MS = 90_000;  // check every 90s for requests on seeded profiles
 const UNLOCK_SEND_MIN_MS  = 10 * 60_000;   // min gap between seeder-sent requests
 const UNLOCK_SEND_MAX_MS  = 20 * 60_000;   // max gap
-const UNLOCK_SEND_START_MS = 8 * 60_000;   // first request after 8 min
+const UNLOCK_SEND_START_MS = 60_000;        // first unlock request after 1 min
 
 // 60% chance a seeded guy accepts an incoming request; 40% he silently ignores it
 const ACCEPT_CHANCE = 0.6;
@@ -515,7 +515,7 @@ export function startSeeder() {
   }, UNLOCK_SEND_START_MS);
 
   logger.info(
-    { total: ROSTER.length, dripMins: 25, churnStartMins: 26, firstMsgMins: 5, firstUnlockMins: 8 },
-    "Seeder started — drip, churn, messages every 3–8 min, unlock requests every 10–20 min",
+    { total: ROSTER.length, dripMins: 25, churnStartMins: 26, firstMsgSecs: 20, firstUnlockSecs: 60 },
+    "Seeder started — drip, churn, messages every 1.5–4 min, unlock requests every 10–20 min",
   );
 }
