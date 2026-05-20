@@ -93,7 +93,7 @@ export default function RadarMap({ region, userLocation, locationGranted, nearby
               coordinate={{ latitude: user.latitude, longitude: user.longitude }}
               onPress={() => onMarkerPress(user)}
               anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
+              tracksViewChanges={isSelected}
             >
               <View style={[styles.mePinWrapper, isSelected && styles.mapPinSelected]}>
                 <View style={styles.mePinInner}>
@@ -118,7 +118,7 @@ export default function RadarMap({ region, userLocation, locationGranted, nearby
             coordinate={{ latitude: user.latitude, longitude: user.longitude }}
             onPress={() => onMarkerPress(user)}
             anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
+            tracksViewChanges={isSelected}
           >
             <View style={[styles.mapPin, isSelected && styles.mapPinSelected]}>
               <View style={styles.mapPinInner}>
