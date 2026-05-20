@@ -4,146 +4,383 @@ import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { logger } from "./logger";
 
-const SEED_PREFIX = "seed_";
-const POOL_SIZE = 20;
-const ACTIVE_COUNT = 8;
-const TICK_INTERVAL_MS = 2 * 60_000;
-const SCATTER_MILES = 2;
-const MILES_PER_DEG_LAT = 69.0;
-const DEFAULT_LAT = 39.7392;
-const DEFAULT_LON = -104.9903;
+const SEED_PREFIX = "seed_uptown_";
 
-const NAMES = ["Alex", "Jordan", "Tyler", "Casey", "Morgan", "Jamie", "Quinn", "Blake", "Reese", "Dakota", "Avery", "River", "Drew", "Cameron", "Kyle", "Shane", "Cole", "Ryan", "Derek", "Evan"];
-const POSITIONS = ["Top", "Bottom", "Versatile", "Vers Top", "Vers Bottom", "Side"];
-const BODY_TYPES = ["Athletic", "Slim", "Average", "Muscular", "Stocky", "Heavyset"];
-const ENDOWMENTS = ["Cut", "Uncut"];
-const LOOKING_FORS = ["Right Now", "Tonight", "This Week", "Regular", "Discreet"];
-const HOSTING_OPTIONS = ["Can Host", "Can Travel", "Host & Travel", "No Host"];
-const AGES = ["22", "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "45", "48"];
-const COCK_SIZES = ["5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0"];
-const INTO_OPTIONS = [
-  "Oral,Kissing,NSA",
-  "Oral,Rimming,Discreet",
-  "Anal,Raw,NSA",
-  "Oral,JO / Mutual,Discreet",
-  "Kink,Raw,Regular",
-  "Oral,Anal,Kissing",
-  "Rimming,Anal,Outdoors",
-  "NSA,Discreet,JO / Mutual",
-  "Oral,Kissing,Regular",
-  "Anal,Kink,Toys",
+// Uptown Denver 80203 — each guy has a fixed lat/lon so they always appear
+// in the exact same spot on the radar.
+const ROSTER: {
+  slug: string;
+  name: string;
+  age: string;
+  position: string;
+  bodyType: string;
+  endowment: string;
+  lookingFor: string;
+  hosting: string;
+  cockSize: string;
+  into: string;
+  lat: number;
+  lon: number;
+  // public photo indices from randomuser.me/portraits/men/N.jpg
+  publicPhotos: number[];
+  // private/locked photo indices — empty means no private photos
+  privatePhotos: number[];
+}[] = [
+  {
+    slug: "marcus",
+    name: "Marcus",
+    age: "29",
+    position: "Top",
+    bodyType: "Athletic",
+    endowment: "Cut",
+    lookingFor: "Right Now",
+    hosting: "Can Host",
+    cockSize: "7.5",
+    into: "Oral,Anal,NSA",
+    lat: 39.7415, lon: -104.9758,
+    publicPhotos: [3],
+    privatePhotos: [13, 23],
+  },
+  {
+    slug: "jaylen",
+    name: "Jaylen",
+    age: "26",
+    position: "Versatile",
+    bodyType: "Muscular",
+    endowment: "Uncut",
+    lookingFor: "Tonight",
+    hosting: "Host & Travel",
+    cockSize: "8.0",
+    into: "Oral,Anal,Kissing",
+    lat: 39.7400, lon: -104.9780,
+    publicPhotos: [7, 17],
+    privatePhotos: [27],
+  },
+  {
+    slug: "bryce",
+    name: "Bryce",
+    age: "33",
+    position: "Bottom",
+    bodyType: "Slim",
+    endowment: "Cut",
+    lookingFor: "Discreet",
+    hosting: "Can Travel",
+    cockSize: "6.0",
+    into: "Oral,Rimming,Discreet",
+    lat: 39.7430, lon: -104.9740,
+    publicPhotos: [11],
+    privatePhotos: [],
+  },
+  {
+    slug: "cole",
+    name: "Cole",
+    age: "31",
+    position: "Vers Top",
+    bodyType: "Athletic",
+    endowment: "Cut",
+    lookingFor: "Regular",
+    hosting: "Can Host",
+    cockSize: "7.0",
+    into: "Oral,Anal,Raw",
+    lat: 39.7390, lon: -104.9720,
+    publicPhotos: [15, 25],
+    privatePhotos: [35],
+  },
+  {
+    slug: "drew",
+    name: "Drew",
+    age: "24",
+    position: "Bottom",
+    bodyType: "Average",
+    endowment: "Uncut",
+    lookingFor: "Right Now",
+    hosting: "No Host",
+    cockSize: "5.5",
+    into: "Oral,Kissing,JO / Mutual",
+    lat: 39.7375, lon: -104.9765,
+    publicPhotos: [19],
+    privatePhotos: [29, 39],
+  },
+  {
+    slug: "ryan",
+    name: "Ryan",
+    age: "38",
+    position: "Top",
+    bodyType: "Heavyset",
+    endowment: "Cut",
+    lookingFor: "Tonight",
+    hosting: "Can Host",
+    cockSize: "7.0",
+    into: "Anal,NSA,Discreet",
+    lat: 39.7420, lon: -104.9700,
+    publicPhotos: [22, 32],
+    privatePhotos: [],
+  },
+  {
+    slug: "eli",
+    name: "Eli",
+    age: "27",
+    position: "Versatile",
+    bodyType: "Slim",
+    endowment: "Uncut",
+    lookingFor: "This Week",
+    hosting: "Host & Travel",
+    cockSize: "6.5",
+    into: "Oral,Rimming,Anal",
+    lat: 39.7398, lon: -104.9735,
+    publicPhotos: [41],
+    privatePhotos: [51],
+  },
+  {
+    slug: "nate",
+    name: "Nate",
+    age: "35",
+    position: "Side",
+    bodyType: "Athletic",
+    endowment: "Cut",
+    lookingFor: "Regular",
+    hosting: "Can Travel",
+    cockSize: "6.0",
+    into: "JO / Mutual,Oral,Kissing",
+    lat: 39.7410, lon: -104.9770,
+    publicPhotos: [44, 54],
+    privatePhotos: [],
+  },
+  {
+    slug: "travis",
+    name: "Travis",
+    age: "30",
+    position: "Vers Bottom",
+    bodyType: "Stocky",
+    endowment: "Cut",
+    lookingFor: "Right Now",
+    hosting: "Can Host",
+    cockSize: "6.5",
+    into: "Anal,Kink,Raw",
+    lat: 39.7385, lon: -104.9750,
+    publicPhotos: [48],
+    privatePhotos: [58, 68],
+  },
+  {
+    slug: "derek",
+    name: "Derek",
+    age: "42",
+    position: "Top",
+    bodyType: "Muscular",
+    endowment: "Uncut",
+    lookingFor: "Discreet",
+    hosting: "No Host",
+    cockSize: "8.0",
+    into: "Oral,Anal,Discreet",
+    lat: 39.7435, lon: -104.9755,
+    publicPhotos: [53],
+    privatePhotos: [],
+  },
+  {
+    slug: "kyle",
+    name: "Kyle",
+    age: "23",
+    position: "Bottom",
+    bodyType: "Slim",
+    endowment: "Cut",
+    lookingFor: "Tonight",
+    hosting: "Host & Travel",
+    cockSize: "5.5",
+    into: "Oral,Kissing,Regular",
+    lat: 39.7368, lon: -104.9730,
+    publicPhotos: [56, 66],
+    privatePhotos: [36],
+  },
+  {
+    slug: "sean",
+    name: "Sean",
+    age: "45",
+    position: "Versatile",
+    bodyType: "Average",
+    endowment: "Cut",
+    lookingFor: "Regular",
+    hosting: "Can Host",
+    cockSize: "7.0",
+    into: "Oral,Anal,Outdoors",
+    lat: 39.7395, lon: -104.9708,
+    publicPhotos: [60],
+    privatePhotos: [],
+  },
+  {
+    slug: "brandon",
+    name: "Brandon",
+    age: "28",
+    position: "Top",
+    bodyType: "Athletic",
+    endowment: "Uncut",
+    lookingFor: "Right Now",
+    hosting: "Can Host",
+    cockSize: "7.5",
+    into: "Raw,Anal,NSA",
+    lat: 39.7422, lon: -104.9742,
+    publicPhotos: [62, 2],
+    privatePhotos: [12],
+  },
+  {
+    slug: "adam",
+    name: "Adam",
+    age: "36",
+    position: "Vers Top",
+    bodyType: "Muscular",
+    endowment: "Cut",
+    lookingFor: "This Week",
+    hosting: "Can Travel",
+    cockSize: "7.0",
+    into: "Kink,Anal,Toys",
+    lat: 39.7378, lon: -104.9715,
+    publicPhotos: [64],
+    privatePhotos: [4, 14],
+  },
+  {
+    slug: "chris",
+    name: "Chris",
+    age: "32",
+    position: "Bottom",
+    bodyType: "Average",
+    endowment: "Uncut",
+    lookingFor: "Tonight",
+    hosting: "No Host",
+    cockSize: "6.0",
+    into: "Oral,Rimming,Kissing",
+    lat: 39.7440, lon: -104.9728,
+    publicPhotos: [9, 18],
+    privatePhotos: [],
+  },
+  {
+    slug: "mike",
+    name: "Mike",
+    age: "40",
+    position: "Top",
+    bodyType: "Heavyset",
+    endowment: "Cut",
+    lookingFor: "Discreet",
+    hosting: "Can Host",
+    cockSize: "7.5",
+    into: "Discreet,NSA,Anal",
+    lat: 39.7362, lon: -104.9758,
+    publicPhotos: [20],
+    privatePhotos: [30, 50],
+  },
 ];
 
-// Pre-defined stable portrait URLs from randomuser.me CDN
-const MALE_PHOTO_INDICES = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70];
-const usedPhotoIndices = new Set<number>();
+// Drip schedule: each entry is the delay in MINUTES after server start
+// when that roster index comes online. Spread 16 guys over ~30 mins, 1-2 at a time.
+const DRIP_SCHEDULE: number[][] = [
+  [0, 1],     // guys 0,1  come online immediately
+  [2],        // guy  2    at 2 min
+  [4, 5],     // guys 3,4  at 4 min
+  [7],        // guy  5    at 7 min
+  [9, 10],    // guys 6,7  at 9 min
+  [12],       // guy  8    at 12 min
+  [14, 15],   // guys 9,10 at 14 min
+  [17],       // guy  11   at 17 min
+  [19, 20],   // guys 12,13 at 19 min
+  [22],       // guy  14   at 22 min
+  [25, 26],   // guys 15 (index 15 only, wraps) at 25 min — all 16 online
+];
 
-function pickPhotoIndex(): number {
-  if (usedPhotoIndices.size >= MALE_PHOTO_INDICES.length) usedPhotoIndices.clear();
-  let idx: number;
-  do { idx = MALE_PHOTO_INDICES[Math.floor(Math.random() * MALE_PHOTO_INDICES.length)]!; }
-  while (usedPhotoIndices.has(idx));
-  usedPhotoIndices.add(idx);
-  return idx;
-}
+const KEEPALIVE_INTERVAL_MS = 60_000; // refresh lastSeen every 60s once online
 
-function makeSeedPhotos(count: number) {
-  return Array.from({ length: count }, (_, i) => {
-    const n = pickPhotoIndex();
+function buildPhotos(publicNums: number[], privateNums: number[]) {
+  const photos: { id: string; uri: string; thumbnailUri: string; isLocked: boolean }[] = [];
+  for (const n of publicNums) {
     const uri = `https://randomuser.me/api/portraits/men/${n}.jpg`;
-    return { id: `sp_${n}`, uri, thumbnailUri: uri, isLocked: i === 1 };
-  });
+    photos.push({ id: `sp_pub_${n}`, uri, thumbnailUri: uri, isLocked: false });
+  }
+  for (const n of privateNums) {
+    const uri = `https://randomuser.me/api/portraits/men/${n}.jpg`;
+    photos.push({ id: `sp_priv_${n}`, uri, thumbnailUri: uri, isLocked: true });
+  }
+  return photos;
 }
 
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
-}
+async function bringOnline(idx: number) {
+  const guy = ROSTER[idx];
+  if (!guy) return;
 
-function scatter(centerLat: number, centerLon: number): { lat: number; lon: number } {
-  const latDelta = (Math.random() - 0.5) * 2 * (SCATTER_MILES / MILES_PER_DEG_LAT);
-  const lonDelta =
-    (Math.random() - 0.5) *
-    2 *
-    (SCATTER_MILES / (MILES_PER_DEG_LAT * Math.cos((centerLat * Math.PI) / 180)));
-  return { lat: centerLat + latDelta, lon: centerLon + lonDelta };
-}
-
-async function getCenter(): Promise<{ lat: number; lon: number }> {
-  const realUsers = await db
-    .select({ latitude: profiles.latitude, longitude: profiles.longitude })
-    .from(profiles)
-    .where(sql`${profiles.id} NOT LIKE ${SEED_PREFIX + "%"}`);
-
-  const valid = realUsers.filter((u) => u.latitude != null && u.longitude != null);
-  if (!valid.length) return { lat: DEFAULT_LAT, lon: DEFAULT_LON };
-
-  const lat = valid.reduce((sum, u) => sum + u.latitude!, 0) / valid.length;
-  const lon = valid.reduce((sum, u) => sum + u.longitude!, 0) / valid.length;
-  return { lat, lon };
-}
-
-async function tick() {
+  const id = `${SEED_PREFIX}${guy.slug}`;
   const now = Date.now();
-  const center = await getCenter();
+  const photos = buildPhotos(guy.publicPhotos, guy.privatePhotos);
 
-  const seeded = await db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(sql`${profiles.id} LIKE ${SEED_PREFIX + "%"}`);
-
-  const missing = POOL_SIZE - seeded.length;
-  const createdIds: string[] = [];
-
-  for (let i = 0; i < missing; i++) {
-    const id = `${SEED_PREFIX}${randomUUID()}`;
-    const { lat, lon } = scatter(center.lat, center.lon);
-    await db
-      .insert(profiles)
-      .values({
-        id,
-        name: pick(NAMES),
-        age: pick(AGES),
-        position: pick(POSITIONS),
-        bodyType: pick(BODY_TYPES),
-        endowment: pick(ENDOWMENTS),
-        lookingFor: pick(LOOKING_FORS),
-        hosting: pick(HOSTING_OPTIONS),
-        cockSize: pick(COCK_SIZES),
-        into: pick(INTO_OPTIONS),
-        photos: makeSeedPhotos(Math.random() < 0.4 ? 2 : 1),
+  // Upsert — create if new, bring online if exists
+  await db
+    .insert(profiles)
+    .values({
+      id,
+      name: guy.name,
+      age: guy.age,
+      position: guy.position,
+      bodyType: guy.bodyType,
+      endowment: guy.endowment,
+      lookingFor: guy.lookingFor,
+      hosting: guy.hosting,
+      cockSize: guy.cockSize,
+      into: guy.into,
+      photos,
+      isOnline: true,
+      isLive: true,
+      isShadowBanned: false,
+      lastSeen: now,
+      latitude: guy.lat,
+      longitude: guy.lon,
+      createdAt: now,
+    })
+    .onConflictDoUpdate({
+      target: profiles.id,
+      set: {
         isOnline: true,
         isLive: true,
-        isShadowBanned: false,
         lastSeen: now,
-        latitude: lat,
-        longitude: lon,
-        createdAt: now,
-      })
-      .onConflictDoNothing();
-    createdIds.push(id);
-  }
+        // keep lat/lon fixed — do NOT update location on reconnect
+        latitude: guy.lat,
+        longitude: guy.lon,
+      },
+    });
 
-  const allIds = [...seeded.map((s) => s.id), ...createdIds];
-  const shuffled = allIds.sort(() => Math.random() - 0.5);
-  const toRefresh = shuffled.slice(0, Math.min(ACTIVE_COUNT, shuffled.length));
+  logger.info({ name: guy.name, id }, "Seed guy came online");
+}
 
-  for (const id of toRefresh) {
-    const { lat, lon } = scatter(center.lat, center.lon);
-    await db
-      .update(profiles)
-      .set({ lastSeen: now, isLive: true, isOnline: true, latitude: lat, longitude: lon })
-      .where(eq(profiles.id, id));
-  }
-
-  logger.info(
-    { refreshed: toRefresh.length, created: createdIds.length, pool: allIds.length },
-    "Seeder tick",
-  );
+async function keepalive() {
+  const now = Date.now();
+  // Just refresh lastSeen so they stay visible; locations stay fixed
+  await db
+    .update(profiles)
+    .set({ lastSeen: now, isOnline: true, isLive: true })
+    .where(sql`${profiles.id} LIKE ${"seed_uptown_%"}`);
 }
 
 export function startSeeder() {
-  tick().catch((err) => logger.error({ err }, "Seeder initial tick error"));
+  // Flatten drip schedule into a list of { delayMs, rosterIndex } entries
+  let rosterIdx = 0;
+  for (const batch of DRIP_SCHEDULE) {
+    for (const delayMins of batch) {
+      const capturedIdx = rosterIdx;
+      setTimeout(
+        () => {
+          bringOnline(capturedIdx).catch((err) =>
+            logger.error({ err, idx: capturedIdx }, "Seeder bringOnline error"),
+          );
+        },
+        delayMins * 60_000,
+      );
+      rosterIdx++;
+      if (rosterIdx >= ROSTER.length) break;
+    }
+    if (rosterIdx >= ROSTER.length) break;
+  }
+
+  // Keepalive: refresh lastSeen every minute so guys don't time out off the radar
   setInterval(() => {
-    tick().catch((err) => logger.error({ err }, "Seeder tick error"));
-  }, TICK_INTERVAL_MS);
+    keepalive().catch((err) => logger.error({ err }, "Seeder keepalive error"));
+  }, KEEPALIVE_INTERVAL_MS);
+
+  logger.info(
+    { total: Math.min(rosterIdx, ROSTER.length), durationMins: 25 },
+    "Seeder started — guys will trickle online over ~25 minutes",
+  );
 }
