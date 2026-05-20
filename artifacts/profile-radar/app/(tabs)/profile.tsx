@@ -335,7 +335,7 @@ function PhotoGrid() {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { myProfile, isSetup, isLive, goLive, goOffline, deleteMyProfile } = useApp();
+  const { myProfile, isSetup, isLive, goLive, goIdle, deleteMyProfile } = useApp();
   const [deleting, setDeleting] = useState(false);
   const [togglingLive, setTogglingLive] = useState(false);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -345,11 +345,11 @@ export default function ProfileScreen() {
   const coverPhoto = publicPhotos[0];
   const fallbackColor = myProfile?.name ? fallbackColorFor(myProfile.name) : Colors.accent;
 
-  async function handleToggleLive() {
+  async function handleToggleIdle() {
     setTogglingLive(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      if (isLive) await goOffline();
+      if (isLive) await goIdle();
       else await goLive();
     } finally {
       setTogglingLive(false);
@@ -426,9 +426,9 @@ export default function ProfileScreen() {
         {/* Top row: status chip + edit button */}
         <View style={[styles.heroTopRow, { paddingTop: topPad + 12 }]}>
           <View style={[styles.liveChip, isLive ? styles.liveChipOn : styles.liveChipOff]}>
-            <View style={[styles.liveDot, { backgroundColor: isLive ? Colors.online : Colors.textMuted }]} />
-            <Text style={[styles.liveChipText, { color: isLive ? Colors.online : Colors.textMuted }]}>
-              {isLive ? "Live" : "Offline"}
+            <View style={[styles.liveDot, { backgroundColor: isLive ? Colors.online : "#FF9500" }]} />
+            <Text style={[styles.liveChipText, { color: isLive ? Colors.online : "#FF9500" }]}>
+              {isLive ? "Live" : "Idle"}
             </Text>
           </View>
           <Pressable
@@ -481,16 +481,16 @@ export default function ProfileScreen() {
         </Pressable>
         <Pressable
           style={[styles.actionBtn, styles.actionBtnSecondary, togglingLive && { opacity: 0.6 }]}
-          onPress={handleToggleLive}
+          onPress={handleToggleIdle}
           disabled={togglingLive}
         >
           {togglingLive ? (
-            <ActivityIndicator size="small" color={isLive ? Colors.online : Colors.textSecondary} />
+            <ActivityIndicator size="small" color={isLive ? Colors.online : "#FF9500"} />
           ) : (
             <>
-              <View style={[styles.toggleDot, { backgroundColor: isLive ? Colors.online : Colors.textMuted }]} />
-              <Text style={[styles.actionBtnSecondaryText, isLive && { color: Colors.online }]}>
-                {isLive ? "Go Offline" : "Go Live"}
+              <View style={[styles.toggleDot, { backgroundColor: isLive ? Colors.online : "#FF9500" }]} />
+              <Text style={[styles.actionBtnSecondaryText, { color: isLive ? Colors.online : "#FF9500" }]}>
+                {isLive ? "Go Idle" : "Go Live"}
               </Text>
             </>
           )}
@@ -515,8 +515,8 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: isLive ? Colors.online : Colors.textMuted, fontSize: 11 }]}>
-            {isLive ? "LIVE" : "OFFLINE"}
+          <Text style={[styles.statValue, { color: isLive ? Colors.online : "#FF9500", fontSize: 11 }]}>
+            {isLive ? "LIVE" : "IDLE"}
           </Text>
           <Text style={styles.statLabel}>Status</Text>
         </View>

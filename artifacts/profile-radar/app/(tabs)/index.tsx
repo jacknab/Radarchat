@@ -17,7 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { useApp, NearbyUser } from "@/contexts/AppContext";
 import RadarMap from "@/components/RadarMap";
-import { api, resolvePhotoUri } from "@/lib/api";
+import { resolvePhotoUri } from "@/lib/api";
 
 function formatDistance(miles: number): string {
   const feet = Math.round(miles * 5280);
@@ -27,30 +27,14 @@ function formatDistance(miles: number): string {
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
-  const { myProfile, isSetup, isLive, goLive, goOffline, nearbyUsers, saveProfile, refreshNearbyUsers, isLoading } = useApp();
+  const { myProfile, nearbyUsers, saveProfile, refreshNearbyUsers, isLoading } = useApp();
   const [locationGranted, setLocationGranted] = useState<boolean | null>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<NearbyUser | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [goingLive, setGoingLive] = useState(false);
-  const [guestCount, setGuestCount] = useState<number | null>(null);
   const mapRef = useRef<any>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
   const spinLoop = useRef<Animated.CompositeAnimation | null>(null);
-  const livePulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (isLive) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(livePulse, { toValue: 1.2, duration: 800, useNativeDriver: true }),
-          Animated.timing(livePulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-  }, [isLive]);
 
   function doRefresh() {
     if (isRefreshing) return;
@@ -78,13 +62,6 @@ export default function MapScreen() {
     }
   }, [isLoading]);
 
-  async function fetchGuestCount(lat: number, lon: number) {
-    try {
-      const result = await api<{ count: number }>(`/api/nearby/count?lat=${lat}&lon=${lon}`);
-      setGuestCount(result.count);
-    } catch {}
-  }
-
   async function requestLocation() {
     const perm = await Location.requestForegroundPermissionsAsync();
     setLocationGranted(perm.granted);
@@ -96,7 +73,6 @@ export default function MapScreen() {
         await saveProfile({ ...myProfile, latitude: coords.latitude, longitude: coords.longitude });
       } else {
         refreshNearbyUsers(coords.latitude, coords.longitude);
-        fetchGuestCount(coords.latitude, coords.longitude);
       }
       mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.018, longitudeDelta: 0.018 }, 1000);
     } else if (myProfile?.latitude && myProfile?.longitude) {
@@ -105,21 +81,7 @@ export default function MapScreen() {
       const fallback = { latitude: 39.7285, longitude: -104.9777 };
       setUserLocation(fallback);
       refreshNearbyUsers(fallback.latitude, fallback.longitude);
-      if (!isSetup) fetchGuestCount(fallback.latitude, fallback.longitude);
     }
-  }
-
-  async function handleGoLive() {
-    if (goingLive) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setGoingLive(true);
-    await goLive();
-    setGoingLive(false);
-  }
-
-  async function handleGoOffline() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await goOffline();
   }
 
   const mapCenter: { latitude: number; longitude: number } = userLocation
@@ -137,9 +99,6 @@ export default function MapScreen() {
     );
   }
 
-  const onlineCount = nearbyUsers.filter((u) => u.isOnline && !u.isMe).length;
-  const displayCount = isSetup ? onlineCount : (guestCount ?? 0);
-
   return (
     <View style={styles.container}>
       <RadarMap
@@ -153,67 +112,23 @@ export default function MapScreen() {
           setSelectedUser(user);
         }}
         mapRef={mapRef}
-        topPadding={insets.top + 130}
+        topPadding={insets.top + 52}
       />
 
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12) }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Radar</Text>
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDotSmall} />
-              <Text style={styles.onlineCount}>{displayCount} nearby</Text>
-            </View>
-          </View>
-          <Pressable
-            style={[styles.refreshBtn, isRefreshing && styles.refreshBtnActive]}
-            onPress={doRefresh}
-          >
-            <Animated.View style={{
-              transform: [{
-                rotate: spinAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] })
-              }]
-            }}>
-              <Ionicons name="refresh" size={18} color={isRefreshing ? Colors.accent : Colors.text} />
-            </Animated.View>
-          </Pressable>
-        </View>
-
-        {/* Go Live / Go Offline bar */}
-        {!isSetup ? (
-          <Pressable
-            style={styles.goLiveBar}
-            onPress={() => { Haptics.selectionAsync(); router.push("/setup"); }}
-          >
-            <Ionicons name="radio-outline" size={15} color={Colors.accent} />
-            <Text style={styles.goLiveBarText}>Create a profile to Go Live</Text>
-            <Ionicons name="chevron-forward" size={13} color={Colors.accent} />
-          </Pressable>
-        ) : isLive ? (
-          <View style={styles.liveBar}>
-            <Animated.View style={[styles.liveDot, { transform: [{ scale: livePulse }] }]} />
-            <Text style={styles.liveBarText}>You're Live</Text>
-            <Pressable style={styles.goOfflineBtn} onPress={handleGoOffline}>
-              <Text style={styles.goOfflineBtnText}>Go Offline</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            style={[styles.goLiveBar, styles.goLiveBarActive]}
-            onPress={handleGoLive}
-            disabled={goingLive}
-          >
-            {goingLive ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="radio" size={15} color="#fff" />
-                <Text style={[styles.goLiveBarText, { color: "#fff" }]}>Go Live — appear in Radar</Text>
-                <Ionicons name="chevron-forward" size={13} color="#fff" />
-              </>
-            )}
-          </Pressable>
-        )}
+      {/* Floating refresh button — top right */}
+      <View style={[styles.floatingRefresh, { top: insets.top + 8 }]} pointerEvents="box-none">
+        <Pressable
+          style={[styles.refreshBtn, isRefreshing && styles.refreshBtnActive]}
+          onPress={doRefresh}
+        >
+          <Animated.View style={{
+            transform: [{
+              rotate: spinAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] })
+            }]
+          }}>
+            <Ionicons name="refresh" size={18} color={isRefreshing ? Colors.accent : Colors.text} />
+          </Animated.View>
+        </Pressable>
       </View>
 
       {selectedUser && (
@@ -282,9 +197,12 @@ const styles = StyleSheet.create({
   onlineBadge: { flexDirection: "row", alignItems: "center", gap: 6 },
   onlineDotSmall: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.online },
   onlineCount: { fontSize: 12, color: Colors.textSecondary, fontFamily: "Inter_400Regular" },
+  floatingRefresh: {
+    position: "absolute", right: 16,
+  },
   refreshBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: Colors.bgCard, alignItems: "center", justifyContent: "center",
+    backgroundColor: "rgba(8,8,16,0.85)", alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: Colors.border,
   },
   refreshBtnActive: {

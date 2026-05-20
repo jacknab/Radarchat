@@ -57,6 +57,7 @@ export interface NearbyUser {
   into?: string;
   photos: Photo[];
   isOnline: boolean;
+  isLive?: boolean;
   lastSeen: number;
   latitude: number;
   longitude: number;
@@ -151,7 +152,7 @@ interface AppContextValue {
   dismissRadarEntrant: () => void;
   isLive: boolean;
   goLive: () => Promise<void>;
-  goOffline: () => Promise<void>;
+  goIdle: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -176,6 +177,7 @@ function profileToNearbyUser(profile: UserProfile, lat: number, lon: number): Ne
     into: profile.into,
     photos: profile.photos,
     isOnline: true,
+    isLive: profile.isLive ?? true,
     lastSeen: Date.now(),
     latitude: lat,
     longitude: lon,
@@ -1011,6 +1013,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function goIdle() {
+    if (!userToken) return;
+    try {
+      await api("/api/go-idle", { method: "POST", token: userToken });
+      setMyProfile((prev) => prev ? { ...prev, isLive: false } : prev);
+    } catch (e) {
+      console.log("goIdle err", e);
+    }
+  }
+
+  // Auto go-live whenever the app is open and profile is ready
+  const hasAutoGoLive = useRef(false);
+  useEffect(() => {
+    if (isSetup && userToken && !hasAutoGoLive.current) {
+      hasAutoGoLive.current = true;
+      goLive();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSetup, userToken]);
+
   function dismissRadarEntrant() {
     setNewRadarEntrants((prev) => prev.slice(1));
   }
@@ -1042,6 +1064,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     myProfile, userToken, isSetup, isLive, nearbyUsers, nearbyRadius, setNearbyRadius, unlockedUsers, profilesWhoUnlockedMe,
+    goIdle,
     conversations, blockedUsers, hotStuff, archivedConversations,
     saveProfile, addPhoto, removePhoto, togglePhotoLock, movePhoto, reorderPhotosWithinGallery, setMainPhoto,
     grantUnlock, requestUnlock, hasUnlocked, hasGrantedUnlock, canSeeLockedPhotos,
@@ -1054,7 +1077,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteMyProfile,
     notifications, unreadNotificationCount, recordProfileView, markNotificationsRead,
     newRadarEntrants, dismissRadarEntrant,
-    goLive, goOffline,
+    goLive, goIdle,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [myProfile, userToken, isSetup, isLive, nearbyUsers, unlockedUsers, grantedUnlocks,
     receivedUnlocks, conversations, blockedUsers, hotStuff, archivedConversations, messagesMap,

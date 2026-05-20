@@ -95,7 +95,9 @@ function UserCard({ user, isGuest }: { user: NearbyUser; isGuest?: boolean }) {
         />
       )}
 
-      {user.isOnline && !blurred && <View style={styles.onlineDot} />}
+      {user.isOnline && !blurred && (
+        <View style={[styles.onlineDot, { backgroundColor: user.isLive === false ? "#FF9500" : Colors.online }]} />
+      )}
       {!user.isOnline && !blurred && !user.isMe && (
         <View style={styles.lastSeenBadge}>
           <Text style={styles.lastSeenText}>{formatLastSeenShort(user.lastSeen, false)}</Text>

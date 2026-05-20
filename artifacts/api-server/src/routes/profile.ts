@@ -229,6 +229,15 @@ router.post("/go-offline", requireToken, async (req: AuthedRequest, res) => {
   res.json({ ok: true, isLive: false });
 });
 
+router.post("/go-idle", requireToken, async (req: AuthedRequest, res) => {
+  const token = req.userToken!;
+  await db
+    .update(profiles)
+    .set({ isLive: false, isOnline: true })
+    .where(eq(profiles.id, token));
+  res.json({ ok: true, isIdle: true });
+});
+
 // ---------- Heartbeat ----------
 router.post("/heartbeat", requireToken, async (req: AuthedRequest, res) => {
   const token = req.userToken!;
@@ -314,7 +323,7 @@ router.get("/nearby", async (req, res) => {
     .from(profiles)
     .where(
       and(
-        eq(profiles.isLive, true),
+        eq(profiles.isOnline, true),
         eq(profiles.isShadowBanned, false),
         sql`${profiles.name} <> ''`,
         sql`${profiles.latitude} IS NOT NULL`,
