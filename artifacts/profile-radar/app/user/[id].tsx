@@ -128,23 +128,14 @@ export default function UserDetailScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  if (!user) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>User not found</Text>
-        <Pressable style={styles.backBtnAlt} onPress={() => router.back()}>
-          <Text style={styles.backBtnAltText}>Go Back</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  const publicPhotos = user.photos.filter((p) => !p.isLocked);
-  const lockedPhotos = user.photos.filter((p) => p.isLocked);
+  // Derived values — computed whether or not user is found so hooks stay
+  // unconditional (avoids "Rendered more hooks than previous render" crash).
+  const publicPhotos = user ? user.photos.filter((p) => !p.isLocked) : [];
+  const lockedPhotos = user ? user.photos.filter((p) => p.isLocked) : [];
   const allPhotos = [...publicPhotos, ...lockedPhotos];
-  const alreadyUnlocked = hasUnlocked(user.id);
-  const alreadyGranted = hasGrantedUnlock(user.id);
-  const canSeeAll = canSeeLockedPhotos(user.id);
+  const alreadyUnlocked = hasUnlocked(id ?? "");
+  const alreadyGranted = hasGrantedUnlock(id ?? "");
+  const canSeeAll = canSeeLockedPhotos(id ?? "");
   const viewerPhotos = canSeeAll ? allPhotos : publicPhotos;
 
   // Circular carousel: wrap with clones of last/first
@@ -154,6 +145,7 @@ export default function UserDetailScreen() {
     : viewerPhotos;
   const carouselStartOffset = carouselCount > 1 ? 1 : 0;
 
+  // Must be declared before any early return so hook order is stable
   const onCarouselScrollEnd = useCallback((e: { nativeEvent: { contentOffset: { x: number } } }) => {
     if (carouselCount <= 1) return;
     const rawIndex = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -170,6 +162,18 @@ export default function UserDetailScreen() {
     realIndexRef.current = realIdx;
     setActivePhotoIndex(realIdx);
   }, [carouselCount]);
+
+  // Early return AFTER all hooks so React sees a stable hook count every render
+  if (!user) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>User not found</Text>
+        <Pressable style={styles.backBtnAlt} onPress={() => router.back()}>
+          <Text style={styles.backBtnAltText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   const fallbackColors = ["#FF7A00", "#6C5CE7", "#00B4D8", "#06D6A0", "#FFB703", "#FB8500"];
   const fallbackColor = fallbackColors[user.name.charCodeAt(0) % fallbackColors.length];

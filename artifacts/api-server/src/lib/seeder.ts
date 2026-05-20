@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { profiles, messages, photoUnlockRequests, photoUnlocks } from "@workspace/db/schema";
+import { profiles, messages, photoUnlockRequests, photoUnlocks, notifications, hotStuff } from "@workspace/db/schema";
 import { eq, not, like, and, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { logger } from "./logger";
@@ -452,6 +452,212 @@ function scheduleNextUnlockRequest() {
   }, delay);
 }
 
+// ─── Seed ↔ Seed: messages ────────────────────────────────────────────────────
+// Two random online seeds exchange a message.  40 % chance the recipient
+// replies after a short human-like pause.  Messages are marked read=true
+// immediately since neither party is a real device.
+const S2S_MSG_MIN_MS   = 2 * 60_000;
+const S2S_MSG_MAX_MS   = 6 * 60_000;
+const S2S_MSG_START_MS = 3 * 60_000;
+
+async function sendSeedToSeedMessage() {
+  const slugs = Array.from(onlineSlugs);
+  if (slugs.length < 2) return;
+
+  const senderSlug    = slugs[Math.floor(Math.random() * slugs.length)]!;
+  const others        = slugs.filter((s) => s !== senderSlug);
+  const recipientSlug = others[Math.floor(Math.random() * others.length)]!;
+  const senderId      = `${SEED_PREFIX}${senderSlug}`;
+  const recipientId   = `${SEED_PREFIX}${recipientSlug}`;
+  const text          = pickMessage(senderSlug);
+
+  await db.insert(messages).values({
+    id: randomUUID(), senderId, recipientId, text, timestamp: Date.now(), read: true,
+  });
+  logger.info({ from: senderSlug, to: recipientSlug, text }, "Seed → Seed message");
+
+  // 40 % chance the recipient fires back
+  if (Math.random() < 0.4) {
+    const pause = 15_000 + Math.random() * 90_000;
+    setTimeout(async () => {
+      try {
+        const reply = pickMessage(recipientSlug);
+        await db.insert(messages).values({
+          id: randomUUID(), senderId: recipientId, recipientId: senderId,
+          text: reply, timestamp: Date.now(), read: true,
+        });
+        logger.info({ from: recipientSlug, to: senderSlug, reply }, "Seed → Seed reply");
+      } catch (err) { logger.error({ err }, "Seed reply error"); }
+    }, pause);
+  }
+}
+
+function scheduleNextSeedMessage() {
+  const delay = S2S_MSG_MIN_MS + Math.random() * (S2S_MSG_MAX_MS - S2S_MSG_MIN_MS);
+  setTimeout(() => {
+    sendSeedToSeedMessage()
+      .catch((err) => logger.error({ err }, "Seed-to-seed message error"))
+      .finally(() => scheduleNextSeedMessage());
+  }, delay);
+}
+
+// ─── Seed → Seed: profile views ───────────────────────────────────────────────
+// One seed views another's profile.  Writes a real notification row (same
+// dedup logic as the /profile-view route: max once per pair per 4 h).
+const S2S_VIEW_MIN_MS   = 5 * 60_000;
+const S2S_VIEW_MAX_MS   = 10 * 60_000;
+const S2S_VIEW_START_MS = 2 * 60_000;
+
+async function seedViewProfile() {
+  const slugs = Array.from(onlineSlugs);
+  if (slugs.length < 2) return;
+
+  const viewerSlug = slugs[Math.floor(Math.random() * slugs.length)]!;
+  const others     = slugs.filter((s) => s !== viewerSlug);
+  const targetSlug = others[Math.floor(Math.random() * others.length)]!;
+  const viewerId   = `${SEED_PREFIX}${viewerSlug}`;
+  const targetId   = `${SEED_PREFIX}${targetSlug}`;
+  const viewer     = ROSTER.find((g) => g.slug === viewerSlug)!;
+  const now        = Date.now();
+  const cutoff     = now - 4 * 3600_000;
+
+  const [existing] = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.senderId, viewerId),
+        eq(notifications.recipientId, targetId),
+        eq(notifications.type, "profile_view"),
+        sql`${notifications.createdAt} > ${cutoff}`,
+      ),
+    )
+    .limit(1);
+  if (existing) return;
+
+  const photoUri = viewer.publicPhotos[0]
+    ? `https://randomuser.me/api/portraits/men/${viewer.publicPhotos[0]}.jpg`
+    : null;
+
+  await db.insert(notifications).values({
+    id: randomUUID(), recipientId: targetId, senderId: viewerId,
+    type: "profile_view", senderName: viewer.name,
+    senderPhotoUri: photoUri, read: false, createdAt: now,
+  });
+  logger.info({ viewer: viewerSlug, target: targetSlug }, "Seed viewed Seed profile");
+}
+
+function scheduleNextSeedView() {
+  const delay = S2S_VIEW_MIN_MS + Math.random() * (S2S_VIEW_MAX_MS - S2S_VIEW_MIN_MS);
+  setTimeout(() => {
+    seedViewProfile()
+      .catch((err) => logger.error({ err }, "Seed-view error"))
+      .finally(() => scheduleNextSeedView());
+  }, delay);
+}
+
+// ─── Seed ↔ Seed: photo unlock requests ──────────────────────────────────────
+// A seed with private photos requests access from another seed.
+// The target auto-grants after a 1–5 min delay (seeds always accept each other).
+const S2S_UNLOCK_MIN_MS   = 15 * 60_000;
+const S2S_UNLOCK_MAX_MS   = 30 * 60_000;
+const S2S_UNLOCK_START_MS =  5 * 60_000;
+
+async function sendSeedToSeedUnlockRequest() {
+  const eligibleSlugs = Array.from(onlineSlugs).filter((s) => {
+    const g = ROSTER.find((r) => r.slug === s);
+    return g && g.privatePhotos.length > 0;
+  });
+  if (eligibleSlugs.length === 0) return;
+
+  const senderSlug    = eligibleSlugs[Math.floor(Math.random() * eligibleSlugs.length)]!;
+  const others        = Array.from(onlineSlugs).filter((s) => s !== senderSlug);
+  if (others.length === 0) return;
+  const recipientSlug = others[Math.floor(Math.random() * others.length)]!;
+  const senderId      = `${SEED_PREFIX}${senderSlug}`;
+  const recipientId   = `${SEED_PREFIX}${recipientSlug}`;
+
+  // Skip if already pending or already granted
+  const [[existingReq], [existingGrant]] = await Promise.all([
+    db.select().from(photoUnlockRequests)
+      .where(and(eq(photoUnlockRequests.requesterId, senderId), eq(photoUnlockRequests.targetId, recipientId)))
+      .limit(1),
+    db.select().from(photoUnlocks)
+      .where(and(eq(photoUnlocks.granterId, recipientId), eq(photoUnlocks.granteeId, senderId)))
+      .limit(1),
+  ]);
+  if (existingReq || existingGrant) return;
+
+  await db
+    .insert(photoUnlockRequests)
+    .values({ requesterId: senderId, targetId: recipientId, createdAt: Date.now() })
+    .onConflictDoNothing();
+
+  logger.info({ from: senderSlug, to: recipientSlug }, "Seed requested Seed unlock");
+
+  // Auto-grant — seeds always unlock each other
+  const grantDelay = 60_000 + Math.random() * 4 * 60_000;
+  setTimeout(async () => {
+    try {
+      await db
+        .insert(photoUnlocks)
+        .values({ granterId: recipientId, granteeId: senderId, createdAt: Date.now() })
+        .onConflictDoNothing();
+      await db
+        .delete(photoUnlockRequests)
+        .where(
+          and(
+            eq(photoUnlockRequests.requesterId, senderId),
+            eq(photoUnlockRequests.targetId, recipientId),
+          ),
+        );
+      logger.info({ from: recipientSlug, to: senderSlug }, "Seed granted Seed unlock");
+    } catch (err) { logger.error({ err }, "Seed-to-seed grant error"); }
+  }, grantDelay);
+}
+
+function scheduleNextSeedUnlockRequest() {
+  const delay = S2S_UNLOCK_MIN_MS + Math.random() * (S2S_UNLOCK_MAX_MS - S2S_UNLOCK_MIN_MS);
+  setTimeout(() => {
+    sendSeedToSeedUnlockRequest()
+      .catch((err) => logger.error({ err }, "Seed-to-seed unlock error"))
+      .finally(() => scheduleNextSeedUnlockRequest());
+  }, delay);
+}
+
+// ─── Seed → Seed: hot-stuff (likes) ──────────────────────────────────────────
+// One seed marks another as hot.  onConflictDoNothing prevents duplicates.
+const S2S_HOT_MIN_MS   = 15 * 60_000;
+const S2S_HOT_MAX_MS   = 25 * 60_000;
+const S2S_HOT_START_MS =  8 * 60_000;
+
+async function seedHotStuff() {
+  const slugs = Array.from(onlineSlugs);
+  if (slugs.length < 2) return;
+
+  const ownerSlug  = slugs[Math.floor(Math.random() * slugs.length)]!;
+  const others     = slugs.filter((s) => s !== ownerSlug);
+  const targetSlug = others[Math.floor(Math.random() * others.length)]!;
+  const ownerId    = `${SEED_PREFIX}${ownerSlug}`;
+  const targetId   = `${SEED_PREFIX}${targetSlug}`;
+
+  await db
+    .insert(hotStuff)
+    .values({ ownerId, targetId, createdAt: Date.now() })
+    .onConflictDoNothing();
+
+  logger.info({ owner: ownerSlug, target: targetSlug }, "Seed liked Seed (hot-stuff)");
+}
+
+function scheduleNextSeedHotStuff() {
+  const delay = S2S_HOT_MIN_MS + Math.random() * (S2S_HOT_MAX_MS - S2S_HOT_MIN_MS);
+  setTimeout(() => {
+    seedHotStuff()
+      .catch((err) => logger.error({ err }, "Seed-to-seed hot-stuff error"))
+      .finally(() => scheduleNextSeedHotStuff());
+  }, delay);
+}
+
 // ─── Churn loop ───────────────────────────────────────────────────────────────
 function startChurn() {
   setInterval(() => {
@@ -513,15 +719,52 @@ export function startSeeder() {
     respondToUnlockRequests().catch((err) => logger.error({ err }, "Seeder respondToUnlock error"));
   }, UNLOCK_RESPOND_INTERVAL_MS);
 
-  // Proactive unlock requests from seeded guys
+  // Proactive unlock requests from seeded guys → real users
   setTimeout(() => {
     sendRandomUnlockRequest()
       .catch((err) => logger.error({ err }, "Seeder first unlock request error"))
       .finally(() => scheduleNextUnlockRequest());
   }, UNLOCK_SEND_START_MS);
 
+  // ── Seed ↔ Seed loops ────────────────────────────────────────────────────
+  // Start after Marcus + Jaylen are online (minute 0) but give them a head
+  // start so there are at least 2 guys to interact before the first fire.
+
+  // Messages between seeds (first at 3 min, then every 2–6 min)
+  setTimeout(() => {
+    sendSeedToSeedMessage()
+      .catch((err) => logger.error({ err }, "Seeder first seed-msg error"))
+      .finally(() => scheduleNextSeedMessage());
+  }, S2S_MSG_START_MS);
+
+  // Profile views between seeds (first at 2 min, then every 5–10 min)
+  setTimeout(() => {
+    seedViewProfile()
+      .catch((err) => logger.error({ err }, "Seeder first seed-view error"))
+      .finally(() => scheduleNextSeedView());
+  }, S2S_VIEW_START_MS);
+
+  // Unlock requests between seeds (first at 5 min, then every 15–30 min)
+  setTimeout(() => {
+    sendSeedToSeedUnlockRequest()
+      .catch((err) => logger.error({ err }, "Seeder first seed-unlock error"))
+      .finally(() => scheduleNextSeedUnlockRequest());
+  }, S2S_UNLOCK_START_MS);
+
+  // Hot-stuff likes between seeds (first at 8 min, then every 15–25 min)
+  setTimeout(() => {
+    seedHotStuff()
+      .catch((err) => logger.error({ err }, "Seeder first seed-hot error"))
+      .finally(() => scheduleNextSeedHotStuff());
+  }, S2S_HOT_START_MS);
+
   logger.info(
-    { total: ROSTER.length, dripMins: 25, churnStartMins: 26, firstMsgSecs: 20, firstUnlockSecs: 60 },
-    "Seeder started — drip, churn, messages every 1.5–4 min, unlock requests every 10–20 min",
+    {
+      total: ROSTER.length,
+      dripMins: 25, churnStartMins: 26,
+      seed2real: "msgs 1.5–4 min, unlocks 10–20 min",
+      seed2seed: "msgs 2–6 min, views 5–10 min, unlocks 15–30 min, likes 15–25 min",
+    },
+    "Seeder started — full social graph simulation active",
   );
 }
