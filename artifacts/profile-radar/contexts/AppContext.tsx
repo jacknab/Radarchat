@@ -223,6 +223,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activePeer, setActivePeer] = useState<string | null>(null);
+  // Cache of profiles fetched for conversation peers not in the nearby list.
+  // Prevents "Unknown" names when a seeded profile (or any user) messages us
+  // before their profile appears in the /nearby response.
+  const [peerProfileCache, setPeerProfileCache] = useState<Record<string, NearbyUser>>({});
+  const peerProfileFetchingRef = useRef<Set<string>>(new Set());
 
   const lastSeenInboundRef = useRef<Record<string, number>>({});
   const tokenRef = useRef<string | null>(null);
@@ -470,6 +475,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
         lastSeenInboundRef.current[c.userId] = c.lastTimestamp;
       }
       if (foundNew) playNotificationSound();
+
+      // Fetch profiles for conversation peers not yet in the nearby cache.
+      // This prevents "Unknown" names when a profile messages us before it
+      // appears in our /nearby results (e.g. a seeded profile that just dripped in).
+      const unknownIds = convs
+        .map((c) => c.userId)
+        .filter(
+          (id) =>
+            !serverNearby.find((u) => u.id === id) &&
+            !peerProfileFetchingRef.current.has(id),
+        );
+      if (unknownIds.length > 0) {
+        unknownIds.forEach((id) => peerProfileFetchingRef.current.add(id));
+        const fetched: Record<string, NearbyUser> = {};
+        await Promise.all(
+          unknownIds.map(async (id) => {
+            try {
+              const p = await api<NearbyUser>(`/api/profile/${id}`, { token });
+              fetched[id] = { ...p, distanceMiles: 0 };
+            } catch {
+              peerProfileFetchingRef.current.delete(id);
+            }
+          }),
+        );
+        if (Object.keys(fetched).length > 0) {
+          setPeerProfileCache((prev) => ({ ...prev, ...fetched }));
+        }
+      }
     } catch {}
   }
 
@@ -1056,7 +1089,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return merged;
   }, [myProfile, serverNearby, lat, lon, blockedUsers, nearbyRadius]);
 
-  function getUserById(userId: string) { return nearbyUsers.find((u) => u.id === userId); }
+  function getUserById(userId: string) {
+    return nearbyUsers.find((u) => u.id === userId) ?? peerProfileCache[userId];
+  }
 
   const profilesWhoUnlockedMe = Object.keys(grantedUnlocks);
   const isSetup = !!myProfile?.name;
@@ -1082,7 +1117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }), [myProfile, userToken, isSetup, isLive, nearbyUsers, unlockedUsers, grantedUnlocks,
     receivedUnlocks, conversations, blockedUsers, hotStuff, archivedConversations, messagesMap,
     incomingUnlockRequests, isLoading, notifications, unreadNotificationCount,
-    newRadarEntrants]);
+    newRadarEntrants, peerProfileCache]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
