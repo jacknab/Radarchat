@@ -64,11 +64,11 @@ export default function RadarMap({ region, userLocation, locationGranted, nearby
       showsMyLocationButton={false}
       showsCompass={false}
       showsScale={false}
-      scrollEnabled={false}
-      zoomEnabled={false}
+      scrollEnabled={true}
+      zoomEnabled={true}
       rotateEnabled={false}
       pitchEnabled={false}
-      zoomTapEnabled={false}
+      zoomTapEnabled={true}
       customMapStyle={darkMapStyle}
       mapPadding={{ top: topPadding, right: 0, bottom: 0, left: 0 }}
     >
