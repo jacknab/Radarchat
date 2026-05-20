@@ -12,3 +12,9 @@ id = "ogtskEMFXxtHjGy5e5u8U"
 uri = "file://radar-qr.png"
 type = "image"
 title = "Scan with iPhone Camera or Expo Go"
+
+[[outputs]]
+id = "y9S3b0idsCDXOL3R5eE1V"
+uri = "file://expo-qr.png"
+type = "image"
+title = "Expo QR Code"
