@@ -22,6 +22,7 @@ import { useApp, NearbyUser } from "@/contexts/AppContext";
 import { resolvePhotoUri } from "@/lib/api";
 import { formatLastSeen } from "@/lib/time";
 import PhotoViewer from "@/components/PhotoViewer";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 function formatDistance(miles: number): string {
   const feet = Math.round(miles * 5280);
@@ -213,7 +214,7 @@ export default function UserDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         bounces={true}
-        contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 32) }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 98) }}
       >
         {/* Main photo area */}
         <View style={{ height: PHOTO_HEIGHT }}>
@@ -551,6 +552,8 @@ export default function UserDetailScreen() {
         initialIndex={viewerStart}
         onClose={() => setViewerOpen(false)}
       />
+
+      <BottomTabBar />
     </View>
   );
 }
